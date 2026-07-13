@@ -163,8 +163,8 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     const owner = data.users.find((user) => user.merchantId === product.merchantId)
     return clone({ ...product, merchantName: product.merchantName ?? owner?.displayName ?? '酸茶工坊' })
   }
-  const validateIdempotencyKey = (key: string | undefined): void => {
-    if (key !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(key)) throw new Error('幂等键格式无效')
+  const validateIdempotencyKey = (key: string): void => {
+    if (typeof key !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(key)) throw new Error('幂等键格式无效')
   }
 
   return {
@@ -252,16 +252,14 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       refresh()
       const user = userActor(actor)
       validateIdempotencyKey(idempotencyKey)
-      if (idempotencyKey !== undefined) {
-        const existing = data.orders.find((order) => order.userId === user.id && order.idempotencyKey === idempotencyKey)
-        if (existing !== undefined) return clone(existing)
-      }
+      const existing = data.orders.find((order) => order.userId === user.id && order.idempotencyKey === idempotencyKey)
+      if (existing !== undefined) return clone(existing)
       if (!contact.recipient.trim() || !contact.address.trim() || !isValidPhone(contact.phone)) throw new Error('收货信息无效')
       const cartLines = validateCartLines(lines, true)
       const products = cartLines.map((line) => productById(line.productId))
       if (new Set(products.map((product) => product.merchantId)).size !== 1) throw new Error('订单仅支持单个商家')
       const orderLines: OrderLine[] = cartLines.map((line, index) => ({ ...line, productName: products[index].name, image: products[index].image }))
-      const order: Order = { id: createBusinessId('ORDER'), orderNo: createBusinessId('DST'), userId: user.id, merchantId: products[0].merchantId, lines: orderLines, totalCents: calculateCartTotal(orderLines), status: 'PENDING_PAYMENT', contact: clone(contact), timeline: [orderEvent('PENDING_PAYMENT', '订单已创建')], createdAt: now(), ...(idempotencyKey === undefined ? {} : { idempotencyKey }) }
+      const order: Order = { id: createBusinessId('ORDER'), orderNo: createBusinessId('DST'), userId: user.id, merchantId: products[0].merchantId, lines: orderLines, totalCents: calculateCartTotal(orderLines), status: 'PENDING_PAYMENT', contact: clone(contact), timeline: [orderEvent('PENDING_PAYMENT', '订单已创建')], createdAt: now(), idempotencyKey }
       data.orders.push(order)
       persist()
       return clone(order)

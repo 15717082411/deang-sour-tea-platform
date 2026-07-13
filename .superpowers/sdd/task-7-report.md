@@ -3,7 +3,8 @@
 ## 交付信息
 
 - 分支：`codex/vue-final-frontend`
-- 提交主题：`Complete simulated commerce flow`
+- 初始提交：`b8c81d3`（`Complete simulated commerce flow`）
+- 复核修复提交主题：`fix: harden commerce recovery flows`
 - 提交号：本报告与实现位于同一提交；Git 提交无法稳定内嵌自身哈希，精确提交号记录在最终交付回复中。
 
 ## RED 证据
@@ -18,9 +19,9 @@
 
 ## GREEN 证据
 
-- 商城专项：`npm test -- src/tests/shop`，6 files / 24 tests passed。
+- 商城专项：`npm test -- src/tests/shop`，7 files / 34 tests passed。
 - 合同影响范围：`npm test -- src/tests/data src/tests/auth src/tests/router src/tests/domain src/tests/utils`，6 files / 86 tests passed。
-- 全量测试：`npm test`，19 files / 160 tests passed。
+- 全量测试：`npm test`，20 files / 170 tests passed。
 - 代码规范：`npm run lint`，通过。
 - 类型检查：`npm run typecheck`，通过。
 - 生产构建：`npm run build`，通过。
@@ -34,6 +35,24 @@
 - 新增 catalog/cart/orders stores，支持 actor 隔离、多商家分组、单商家结算、稳定幂等键和共享 in-flight Promise。
 - 完成商城列表、商品详情、购物车、结算、模拟支付和订单详情页面；真实懒加载路由及 USER 角色守卫已接入。
 - 模拟支付覆盖成功、失败、取消；失败可重试，取消为终态，成功或取消均进入真实订单详情。
+
+## 双路复核修复
+
+### RED
+
+- 命令：`npm test -- src/tests/data/commerceRepository.spec.ts src/tests/shop/cart.spec.ts src/tests/shop/checkout.spec.ts src/tests/shop/recoveryPages.spec.ts`
+- 结果：4 files 中 3 failed，`9 failed / 19 passed`。
+- 复现范围：缺失幂等键仍可建单；A 状态驻留后切 B 首次 add 覆盖 B 原购物车；账号切换不清订单；Payment/OrderSummary 不监听路由并显示旧订单；乱序请求覆盖最新订单；checkout 加载错误被误判为空组；失效原因和恢复操作缺失。
+- checkout 清理失败重试用例首次即通过：Repository 中已有订单保持 1 个，稳定 key 重试返回同单并在第二次成功清理目标商家组。
+- 最终差异审阅追加竞态 RED：账号在 cart cleanup 等待期间切换时，旧 checkout 错误地 resolve 并恢复 A 的 `currentOrder`；专项结果为 `1 failed / 6 passed`。保存返回后与 remember 前增加 actor 复核后，该文件 `7/7` 通过。
+
+### GREEN
+
+- `createOrder` 的 `idempotencyKey` 改为类型与运行时均必填；空值、`undefined` 和非法格式统一拒绝，同 USER+key 返回同单。
+- cart 所有读改写入口先共享加载目标 actor，并在异步写入前复核 owner，账号切换测试确认 B 从 3 增至 5 且 A 不变。
+- orders store 在账号切换/登出时重置；订单加载按 userId、expected order id 与请求序号提交，晚到响应无法覆盖最新结果。
+- Payment/OrderSummary 使用局部订单并立即监听 auth userId 与路由参数；错误优先渲染，不再泄露旧订单号、金额或支付面板。
+- Checkout 明确区分 loading、load error、missing group、normal；逐行展示失效原因，提供返回购物车和重新核对操作，失效时提交入口不会调用 orders store。
 
 ## 主要修改文件
 
@@ -52,5 +71,5 @@
 
 ## 残余风险
 
-- 生产构建仍报告主入口 chunk 约 1.08 MB；商城页面已懒加载，但公共依赖仍可在后续任务中进一步拆包。
+- 生产构建仍报告主入口 chunk 约 1.09 MB；商城页面已懒加载，但公共依赖仍可在后续任务中进一步拆包。
 - localStorage Repository 满足两个实例的顺序操作刷新合同；浏览器多标签页在同一毫秒内真正并发写入仍不具备事务锁，这是 localStorage 存储模型的固有限制。

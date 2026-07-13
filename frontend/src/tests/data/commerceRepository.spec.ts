@@ -47,7 +47,7 @@ describe('commerce repository security contract', () => {
       actor: Actor,
       lines: CartRequestLine[],
       contact: OrderContact,
-      idempotencyKey?: string,
+      idempotencyKey: string,
     ]>()
     expectTypeOf<Parameters<PlatformRepository['payOrder']>>().toEqualTypeOf<[
       actor: Actor,
@@ -66,7 +66,7 @@ describe('commerce repository security contract', () => {
       await expect(repo.getCart(actor)).rejects.toThrow()
       await expect(repo.saveCart(actor, lines)).rejects.toThrow()
       await expect(repo.mergeCart(actor, lines)).rejects.toThrow()
-      await expect(repo.createOrder(actor, lines, contact)).rejects.toThrow()
+      await expect(repo.createOrder(actor, lines, contact, 'checkout-rejected-actor')).rejects.toThrow()
     }
   })
 
@@ -109,6 +109,7 @@ describe('commerce repository security contract', () => {
 
     expect(retried).toEqual(first)
     expect((await repo.listOrders(user)).filter(({ id }) => id === first.id)).toHaveLength(1)
+    await expect(repo.createOrder(user, lines, contact, undefined as never)).rejects.toThrow('幂等键')
     await expect(repo.createOrder(user, lines, contact, '')).rejects.toThrow('幂等键')
     await expect(repo.createOrder(user, lines, contact, '../unsafe key')).rejects.toThrow('幂等键')
   })
@@ -129,7 +130,7 @@ describe('commerce repository security contract', () => {
     const repo = createDemoRepository(new MemoryStorage())
     const { user, merchant, admin } = await actors(repo)
     const other = await repo.register({ username: 'other-payer', password: 'Demo123!', phone: '13800138013' })
-    const order = await repo.createOrder(user, [{ productId: 'product-tasting', quantity: 1 }], contact)
+    const order = await repo.createOrder(user, [{ productId: 'product-tasting', quantity: 1 }], contact, 'checkout-payment-owner')
 
     await expect(repo.payOrder(actorFor(other.user), order.id, 'SUCCESS')).rejects.toThrow()
     await expect(repo.payOrder(merchant, order.id, 'SUCCESS')).rejects.toThrow()
@@ -146,7 +147,7 @@ describe('commerce repository security contract', () => {
     const secondActors = await actors(secondRepo)
 
     await firstRepo.saveCart(firstActors.user, [{ productId: 'product-tasting', quantity: 1 }])
-    const order = await secondRepo.createOrder(secondActors.user, [{ productId: 'product-gift', quantity: 1 }], contact)
+    const order = await secondRepo.createOrder(secondActors.user, [{ productId: 'product-gift', quantity: 1 }], contact, 'checkout-repository-refresh')
     await firstRepo.saveCart(firstActors.user, [{ productId: 'product-tasting', quantity: 2 }])
 
     expect(await secondRepo.getCart(secondActors.user)).toEqual([
@@ -164,10 +165,10 @@ describe('commerce repository security contract', () => {
     const firstOrder = await firstRepo.createOrder(user, [
       { productId: 'product-tasting', quantity: 2 },
       { productId: 'product-gift', quantity: 36 },
-    ], contact)
+    ], contact, 'checkout-stock-first')
     const competingOrder = await secondRepo.createOrder(actorFor(competing.user), [
       { productId: 'product-gift', quantity: 36 },
-    ], contact)
+    ], contact, 'checkout-stock-competing')
     await secondRepo.payOrder(actorFor(competing.user), competingOrder.id, 'SUCCESS')
     const tastingBefore = await firstRepo.getProduct('product-tasting')
 
@@ -180,7 +181,7 @@ describe('commerce repository security contract', () => {
   it('does not duplicate stock or timeline entries on repeated successful payment', async () => {
     const repo = createDemoRepository(new MemoryStorage())
     const { user } = await actors(repo)
-    const order = await repo.createOrder(user, [{ productId: 'product-tasting', quantity: 2 }], contact)
+    const order = await repo.createOrder(user, [{ productId: 'product-tasting', quantity: 2 }], contact, 'checkout-repeat-payment')
     const before = await repo.getProduct('product-tasting')
 
     const paid = await repo.payOrder(user, order.id, 'SUCCESS')
@@ -190,7 +191,7 @@ describe('commerce repository security contract', () => {
     expect((await repo.getProduct('product-tasting')).stock).toBe(before.stock - 2)
   })
 
-  it('persists optional idempotency keys without requiring them on legacy orders', async () => {
+  it('persists required idempotency keys while retaining legacy seeded orders', async () => {
     const storage = new MemoryStorage()
     const repo = createDemoRepository(storage)
     const { user } = await actors(repo)

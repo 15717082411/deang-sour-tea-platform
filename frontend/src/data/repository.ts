@@ -51,7 +51,7 @@ export interface PlatformRepository {
   getCart(actor: Actor): Promise<CartLine[]>
   saveCart(actor: Actor, lines: CartRequestLine[]): Promise<CartLine[]>
   mergeCart(actor: Actor, guestLines: CartRequestLine[]): Promise<CartLine[]>
-  createOrder(actor: Actor, lines: CartRequestLine[], contact: OrderContact, idempotencyKey?: string): Promise<Order>
+  createOrder(actor: Actor, lines: CartRequestLine[], contact: OrderContact, idempotencyKey: string): Promise<Order>
   listOrders(actor: Actor): Promise<Order[]>
   getOrder(actor: Actor, orderId: string): Promise<Order>
   payOrder(actor: Actor, orderId: string, result: 'SUCCESS' | 'FAILURE' | 'CANCEL'): Promise<Order>

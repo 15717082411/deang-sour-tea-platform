@@ -31,8 +31,18 @@ export const useOrdersStore = defineStore('orders', {
     paymentPending: false,
     error: null as string | null,
     checkoutKeys: {} as Record<string, string>,
+    orderLoadSequence: 0,
   }),
   actions: {
+    resetForActorChange() {
+      this.orders = []
+      this.currentOrder = null
+      this.checkoutPending = false
+      this.paymentPending = false
+      this.error = null
+      this.orderLoadSequence += 1
+      checkoutFlights.delete(this)
+    },
     remember(order: Order) {
       const index = this.orders.findIndex(({ id }) => id === order.id)
       if (index === -1) this.orders.unshift(order)
@@ -49,6 +59,7 @@ export const useOrdersStore = defineStore('orders', {
       const auth = useAuthStore()
       const cart = useCartStore()
       if (auth.actor === null || auth.user?.role !== 'USER') return Promise.reject(new Error('仅普通用户可以结算'))
+      const actor = auth.actor
       const group = cart.groups.find((candidate) => candidate.merchantId === merchantId)
       if (group === undefined || group.items.length === 0) return Promise.reject(new Error('结算商品不存在'))
       const signature = JSON.stringify({
@@ -71,8 +82,10 @@ export const useOrdersStore = defineStore('orders', {
           if (refreshedGroup === undefined || refreshedGroup.invalid) throw new Error('商品价格或库存已变化，请检查购物车')
           if (refreshedGroup.items.some((item) => item.product?.merchantId !== merchantId)) throw new Error('订单仅支持单个商家')
           const lines = refreshedGroup.items.map(({ productId, quantity }) => ({ productId, quantity }))
-          const order = await useAppStore().repository.createOrder(auth.actor!, lines, normalizedContact, key)
+          const order = await useAppStore().repository.createOrder(actor, lines, normalizedContact, key)
+          if (auth.actor?.userId !== actor.userId) throw new Error('登录账号已切换，请重新核对购物车')
           await cart.removeMerchant(merchantId)
+          if (auth.actor?.userId !== actor.userId) throw new Error('登录账号已切换，请重新核对购物车')
           this.remember(order)
           return order
         } catch (error) {
@@ -88,11 +101,15 @@ export const useOrdersStore = defineStore('orders', {
       void promise.then(cleanup, cleanup)
       return promise
     },
-    async loadOrder(orderId: string): Promise<Order> {
+    async loadOrder(orderId: string, expectedOrderId = orderId): Promise<Order> {
       const auth = useAuthStore()
       if (auth.actor === null || auth.user?.role !== 'USER') throw new Error('无权查看该订单')
-      const order = await useAppStore().repository.getOrder(auth.actor, orderId)
-      this.remember(order)
+      const actor = auth.actor
+      const requestSequence = ++this.orderLoadSequence
+      this.currentOrder = null
+      const order = await useAppStore().repository.getOrder(actor, orderId)
+      if (order.id !== expectedOrderId) throw new Error('订单响应与请求不匹配')
+      if (requestSequence === this.orderLoadSequence && auth.actor?.userId === actor.userId) this.remember(order)
       return order
     },
     async loadOrders(): Promise<Order[]> {
@@ -104,11 +121,12 @@ export const useOrdersStore = defineStore('orders', {
     async pay(orderId: string, result: PaymentResult): Promise<Order> {
       const auth = useAuthStore()
       if (auth.actor === null || auth.user?.role !== 'USER') throw new Error('无权支付该订单')
+      const actor = auth.actor
       this.paymentPending = true
       this.error = null
       try {
-        const order = await useAppStore().repository.payOrder(auth.actor, orderId, result)
-        this.remember(order)
+        const order = await useAppStore().repository.payOrder(actor, orderId, result)
+        if (auth.actor?.userId === actor.userId) this.remember(order)
         return order
       } catch (error) {
         this.error = error instanceof Error ? error.message : '支付请求失败'

@@ -43,6 +43,7 @@ export const useCartStore = defineStore('cart', () => {
   const boundUserId = ref<string | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  let actorLoadFlight: { userId: string; promise: Promise<void> } | null = null
 
   const activeLines = computed<readonly (CartRequestLine | CartLine)[]>(() => {
     if (auth.user === null) return guestLines.value
@@ -86,17 +87,48 @@ export const useCartStore = defineStore('cart', () => {
 
   const subtotalCents = computed(() => calculateCartTotal(items.value.map(({ unitPriceCents, quantity }) => ({ unitPriceCents, quantity }))))
 
-  async function persist(lines: CartRequestLine[]): Promise<void> {
+  async function ensureActorLoaded(force = false): Promise<void> {
+    if (auth.user === null) {
+      boundUserId.value = null
+      userLines.value = []
+      return
+    }
+    if (auth.user.role !== 'USER' || auth.actor === null) throw new Error('当前身份不可使用购物车')
+    const actor = auth.actor
+    const userId = actor.userId
+    if (!force && boundUserId.value === userId) return
+    if (actorLoadFlight?.userId === userId) return actorLoadFlight.promise
+
+    const promise = (async () => {
+      const lines = await useAppStore().repository.getCart(actor)
+      if (auth.actor?.userId !== userId || auth.actor.role !== 'USER') throw new Error('购物车账号已切换，请重试')
+      userLines.value = lines
+      boundUserId.value = userId
+    })()
+    actorLoadFlight = { userId, promise }
+    try {
+      await promise
+    } finally {
+      if (actorLoadFlight?.promise === promise) actorLoadFlight = null
+    }
+  }
+
+  function activeOwnerId(): string | null {
+    return auth.user?.role === 'USER' ? auth.user.id : null
+  }
+
+  async function persist(lines: CartRequestLine[], expectedOwnerId = activeOwnerId()): Promise<void> {
+    await ensureActorLoaded()
+    if (activeOwnerId() !== expectedOwnerId) throw new Error('购物车账号已切换，请重试')
     if (auth.user === null) {
       guestLines.value = writeGuestCart(lines)
       return
     }
     if (auth.user.role !== 'USER' || auth.actor === null) throw new Error('当前身份不可使用购物车')
-    if (boundUserId.value !== auth.user.id) {
-      boundUserId.value = auth.user.id
-      userLines.value = await useAppStore().repository.getCart(auth.actor)
-    }
-    userLines.value = await useAppStore().repository.saveCart(auth.actor, lines)
+    const actor = auth.actor
+    const saved = await useAppStore().repository.saveCart(actor, lines)
+    if (activeOwnerId() !== expectedOwnerId || auth.actor?.userId !== actor.userId) throw new Error('购物车账号已切换，请重试')
+    userLines.value = saved
   }
 
   async function load(): Promise<void> {
@@ -117,8 +149,7 @@ export const useCartStore = defineStore('cart', () => {
         userLines.value = []
         return
       }
-      boundUserId.value = auth.user.id
-      userLines.value = await useAppStore().repository.getCart(auth.actor)
+      await ensureActorLoaded(true)
       await catalog.refreshProducts(userLines.value.map(({ productId }) => productId))
     } catch (caught) {
       error.value = caught instanceof Error ? caught.message : '购物车加载失败'
@@ -130,36 +161,47 @@ export const useCartStore = defineStore('cart', () => {
 
   async function add(productId: string, quantity = 1): Promise<void> {
     if (!Number.isSafeInteger(quantity) || quantity <= 0) throw new Error('商品数量无效')
+    await ensureActorLoaded()
+    const ownerId = activeOwnerId()
     const product = await catalog.get(productId)
+    if (activeOwnerId() !== ownerId) throw new Error('购物车账号已切换，请重试')
     if (product.status !== 'APPROVED' || product.stock <= 0) throw new Error('商品不可购买')
     const current = activeLines.value.find((line) => line.productId === productId)?.quantity ?? 0
     const nextQuantity = Math.min(current + quantity, product.stock)
     const next = activeLines.value.filter((line) => line.productId !== productId).map(({ productId, quantity }) => ({ productId, quantity }))
     next.push({ productId, quantity: nextQuantity })
-    await persist(next)
+    await persist(next, ownerId)
   }
 
   async function setQuantity(productId: string, quantity: number): Promise<void> {
     if (!Number.isSafeInteger(quantity) || quantity <= 0) throw new Error('商品数量无效')
+    await ensureActorLoaded()
+    const ownerId = activeOwnerId()
     const product = await catalog.get(productId)
+    if (activeOwnerId() !== ownerId) throw new Error('购物车账号已切换，请重试')
     const next = activeLines.value.map((line) => ({
       productId: line.productId,
       quantity: line.productId === productId ? Math.min(quantity, product.stock) : line.quantity,
     }))
-    await persist(next)
+    await persist(next, ownerId)
   }
 
   async function remove(productId: string): Promise<void> {
-    await persist(activeLines.value.filter((line) => line.productId !== productId).map(({ productId, quantity }) => ({ productId, quantity })))
+    await ensureActorLoaded()
+    const ownerId = activeOwnerId()
+    await persist(activeLines.value.filter((line) => line.productId !== productId).map(({ productId, quantity }) => ({ productId, quantity })), ownerId)
   }
 
   async function clear(): Promise<void> {
-    await persist([])
+    await ensureActorLoaded()
+    await persist([], activeOwnerId())
   }
 
   async function removeMerchant(merchantId: string): Promise<void> {
+    await ensureActorLoaded()
+    const ownerId = activeOwnerId()
     const purchasedIds = new Set(items.value.filter((item) => item.merchantId === merchantId).map(({ productId }) => productId))
-    await persist(activeLines.value.filter((line) => !purchasedIds.has(line.productId)).map(({ productId, quantity }) => ({ productId, quantity })))
+    await persist(activeLines.value.filter((line) => !purchasedIds.has(line.productId)).map(({ productId, quantity }) => ({ productId, quantity })), ownerId)
   }
 
   return {
@@ -171,6 +213,7 @@ export const useCartStore = defineStore('cart', () => {
     items,
     groups,
     subtotalCents,
+    ensureActorLoaded,
     load,
     add,
     setQuantity,

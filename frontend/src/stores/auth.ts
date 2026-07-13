@@ -3,6 +3,7 @@ import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import type { Actor, AuthSession, LoginInput, RegisterInput, User } from '../domain/types'
 import { clearGuestCart, readGuestCart } from '../utils/guestCart'
 import { useAppStore } from './app'
+import { useOrdersStore } from './orders'
 
 export const SESSION_STORAGE_KEY = 'deang-sour-tea:session'
 
@@ -50,6 +51,7 @@ export const useAuthStore = defineStore('auth', {
       return route.meta.merchantApproved !== true || (this.user.role === 'MERCHANT' && this.user.merchantStatus === 'APPROVED')
     },
     applySession(session: AuthSession) {
+      if (this.user?.id !== session.user.id) useOrdersStore().resetForActorChange()
       this.user = session.user
       this.sessionId = session.sessionId
       window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ userId: session.user.id, sessionId: session.sessionId }))
@@ -106,6 +108,7 @@ export const useAuthStore = defineStore('auth', {
       try {
         if (sessionId !== null) await useAppStore().repository.logout(sessionId)
       } finally {
+        useOrdersStore().resetForActorChange()
         this.user = null
         this.sessionId = null
         this.hydrated = true

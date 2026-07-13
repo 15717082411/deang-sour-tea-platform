@@ -39,6 +39,40 @@ describe('cart store', () => {
     expect(context.cart.boundUserId).toBe('user-demo')
   })
 
+  it('loads the target account before its first write after an account switch', async () => {
+    const data = commerceSeed()
+    data.users.push({
+      id: 'user-b',
+      username: 'user_b',
+      displayName: '账号 B',
+      phone: '13800138009',
+      role: 'USER',
+      merchantStatus: 'NONE',
+    })
+    data.passwords['user-b'] = 'Demo123!'
+    data.carts['user-demo'] = [{ productId: 'product-gift', quantity: 1, unitPriceCents: 16800 }]
+    data.carts['user-b'] = [{ productId: 'product-tasting', quantity: 3, unitPriceCents: 5900 }]
+    const context = createCommerceContext(data)
+
+    await context.auth.login({ username: 'user_demo', password: 'Demo123!' })
+    await context.cart.load()
+    expect(context.cart.items.map(({ productId, quantity }) => ({ productId, quantity }))).toEqual([
+      { productId: 'product-gift', quantity: 1 },
+    ])
+
+    await context.auth.login({ username: 'user_b', password: 'Demo123!' })
+    await context.cart.add('product-tasting', 2)
+
+    const actorB = context.auth.actor!
+    expect(await context.repository.getCart(actorB)).toEqual([
+      { productId: 'product-tasting', quantity: 5, unitPriceCents: 5900 },
+    ])
+    const actorA = { userId: 'user-demo', role: 'USER' } as const
+    expect(await context.repository.getCart(actorA)).toEqual([
+      { productId: 'product-gift', quantity: 1, unitPriceCents: 16800 },
+    ])
+  })
+
   it('groups lines by merchant and reports lines invalidated by current stock', async () => {
     const context = createCommerceContext()
     await context.catalog.load()
