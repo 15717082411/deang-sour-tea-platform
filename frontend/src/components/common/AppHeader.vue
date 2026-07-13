@@ -33,31 +33,120 @@ async function logout() {
 
 <template>
   <header class="app-header">
-    <RouterLink class="brand" to="/" @click="app.closeMobileNavigation">德昂族酸茶</RouterLink>
-    <nav class="desktop-nav" aria-label="主导航">
-      <RouterLink v-for="link in publicLinks" :key="link.to" :to="link.to">{{ link.label }}</RouterLink>
-      <RouterLink to="/booking">预约体验</RouterLink>
+    <RouterLink
+      class="brand"
+      to="/"
+      @click="app.closeMobileNavigation"
+    >
+      德昂族酸茶
+    </RouterLink>
+    <nav
+      class="desktop-nav"
+      aria-label="主导航"
+    >
+      <RouterLink
+        v-for="link in publicLinks"
+        :key="link.to"
+        :to="link.to"
+      >
+        {{ link.label }}
+      </RouterLink>
+      <RouterLink to="/booking">
+        预约体验
+      </RouterLink>
     </nav>
     <div class="desktop-actions">
-      <RouterLink v-if="auth.isAuthenticated" :to="workspace.to" class="account-link">
-        <component :is="workspace.icon" :size="18" aria-hidden="true" />
+      <RouterLink
+        v-if="auth.isAuthenticated"
+        :to="workspace.to"
+        class="account-link"
+      >
+        <component
+          :is="workspace.icon"
+          :size="18"
+          aria-hidden="true"
+        />
         <span>{{ workspace.label }}</span>
       </RouterLink>
-      <button v-if="auth.isAuthenticated" type="button" class="text-button" @click="logout">退出登录</button>
-      <RouterLink v-else to="/login" class="account-link"><UserRound :size="18" aria-hidden="true" /><span>登录</span></RouterLink>
+      <button
+        v-if="auth.isAuthenticated"
+        type="button"
+        class="text-button"
+        @click="logout"
+      >
+        退出登录
+      </button>
+      <RouterLink
+        v-else
+        to="/login"
+        class="account-link"
+      >
+        <UserRound
+          :size="18"
+          aria-hidden="true"
+        /><span>登录</span>
+      </RouterLink>
     </div>
-    <button class="menu-button" type="button" aria-label="打开导航菜单" title="打开导航菜单" @click="app.openMobileNavigation">
-      <Menu :size="22" aria-hidden="true" />
+    <button
+      class="menu-button"
+      type="button"
+      aria-label="打开导航菜单"
+      title="打开导航菜单"
+      @click="app.openMobileNavigation"
+    >
+      <Menu
+        :size="22"
+        aria-hidden="true"
+      />
     </button>
-    <nav v-if="app.mobileNavigationOpen" data-testid="mobile-navigation" class="mobile-navigation" aria-label="移动主导航">
+    <nav
+      v-if="app.mobileNavigationOpen"
+      data-testid="mobile-navigation"
+      class="mobile-navigation"
+      aria-label="移动主导航"
+    >
       <div class="mobile-navigation__heading">
         <span>导航</span>
-        <button type="button" aria-label="关闭导航菜单" title="关闭导航菜单" @click="app.closeMobileNavigation"><X :size="22" aria-hidden="true" /></button>
+        <button
+          type="button"
+          aria-label="关闭导航菜单"
+          title="关闭导航菜单"
+          @click="app.closeMobileNavigation"
+        >
+          <X
+            :size="22"
+            aria-hidden="true"
+          />
+        </button>
       </div>
-      <RouterLink v-for="link in publicLinks" :key="link.to" :to="link.to" @click="app.closeMobileNavigation">{{ link.label }}</RouterLink>
-      <RouterLink to="/booking" @click="app.closeMobileNavigation">预约体验</RouterLink>
-      <RouterLink v-if="auth.isAuthenticated" :to="workspace.to" @click="app.closeMobileNavigation">{{ workspace.label }}</RouterLink>
-      <RouterLink v-else to="/login" @click="app.closeMobileNavigation">登录</RouterLink>
+      <RouterLink
+        v-for="link in publicLinks"
+        :key="link.to"
+        :to="link.to"
+        @click="app.closeMobileNavigation"
+      >
+        {{ link.label }}
+      </RouterLink>
+      <RouterLink
+        to="/booking"
+        @click="app.closeMobileNavigation"
+      >
+        预约体验
+      </RouterLink>
+      <RouterLink
+        v-if="auth.isAuthenticated"
+        :to="workspace.to"
+        @click="app.closeMobileNavigation"
+      >
+        {{ workspace.label }}
+      </RouterLink>
+      <RouterLink
+        v-else
+        to="/login"
+        @click="app.closeMobileNavigation"
+      >
+        登录
+      </RouterLink>
     </nav>
   </header>
 </template>

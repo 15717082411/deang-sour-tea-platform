@@ -12,13 +12,11 @@ import type {
   MerchantApplication,
   MerchantApplicationInput,
   Order,
-  OrderContact,
   OrderLine,
   Product,
   ProductDraftInput,
   ProductQuery,
   RegisterInput,
-  ReviewDecision,
   User,
 } from '../domain/types'
 import { transitionAfterSale, transitionBooking, transitionOrder, transitionProduct } from '../domain/stateMachines'

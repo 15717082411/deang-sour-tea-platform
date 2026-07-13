@@ -5,7 +5,13 @@ const app = useAppStore()
 </script>
 
 <template>
-  <p v-if="app.mode === 'demo'" class="mode-banner" role="status">演示环境：数据保存在当前浏览器中。</p>
+  <p
+    v-if="app.mode === 'demo'"
+    class="mode-banner"
+    role="status"
+  >
+    演示环境：数据保存在当前浏览器中。
+  </p>
 </template>
 
 <style scoped>

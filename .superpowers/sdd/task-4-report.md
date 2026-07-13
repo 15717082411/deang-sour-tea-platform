@@ -66,5 +66,74 @@ git diff --check                            # clean
 
 ## Concerns
 
-- `npm run lint` remains non-zero because Task 3's `frontend/src/data/demoRepository.ts` contains two pre-existing unused type imports (`OrderContact`, `ReviewDecision`). This task adds formatting warnings but no lint errors. It is intentionally excluded from this Task 4-only change.
+- Resolved in the 2026-07-13 remediation below: Task 3's two confirmed unused type imports were removed, and the Task 4 formatting warnings were fixed with a scoped ESLint command.
 - Vite reports existing bundle-size and third-party pure-comment warnings during a successful production build. Route components are intentionally direct imports for this small task; later page work can introduce route-level lazy loading when the actual page bundles exist.
+
+## Review Findings Remediation (2026-07-13)
+
+### RED
+
+Added `/account\\evil` and `/checkout\\foo` to the unsafe redirect regression table in `frontend/src/tests/router/guards.spec.ts` before changing production code.
+
+```text
+npm test -- src/tests/router/guards.spec.ts
+Test Files  1 failed (1)
+Tests  2 failed | 12 passed (14)
+```
+
+Both failures received the original value from `sanitizeRedirect` instead of `null`:
+
+```text
+expected '/account\evil' to be null
+expected '/checkout\foo' to be null
+```
+
+### GREEN And Focused Test
+
+Changed `sanitizeRedirect` to reject any string containing `\\`, while retaining the existing leading `/` and protocol-relative-path checks. The existing valid internal path assertion remains covered.
+
+```text
+npm test -- src/tests/router/guards.spec.ts
+Test Files  1 passed (1)
+Tests  14 passed (14)
+```
+
+### Full Lint
+
+Scoped ESLint `--fix` to the eight Task 4 Vue files reported by the reviewer, then removed the confirmed unused `OrderContact` and `ReviewDecision` type imports from Task 3's `frontend/src/data/demoRepository.ts`.
+
+```text
+npm run lint
+> eslint .
+exit 0
+```
+
+### Typecheck
+
+```text
+npm run typecheck
+> vue-tsc -b --force
+exit 0
+```
+
+### Changed Files
+
+- `.superpowers/sdd/task-4-report.md`
+- `frontend/src/router/redirect.ts`
+- `frontend/src/tests/router/guards.spec.ts`
+- `frontend/src/data/demoRepository.ts`
+- `frontend/src/components/common/AppHeader.vue`
+- `frontend/src/components/common/ModeBanner.vue`
+- `frontend/src/layouts/AccountLayout.vue`
+- `frontend/src/layouts/WorkspaceLayout.vue`
+- `frontend/src/pages/auth/LoginPage.vue`
+- `frontend/src/pages/auth/RegisterPage.vue`
+- `frontend/src/pages/system/ForbiddenPage.vue`
+- `frontend/src/pages/system/NotFoundPage.vue`
+
+### Self-Review
+
+- The regression test failed before the production change and passes after it; both representative internal-looking paths containing a backslash are rejected.
+- Valid internal redirects remain accepted when they begin with one `/`, are not protocol-relative, and contain no backslash.
+- Formatting changes are restricted to the Task 4 Vue files named in the lint output; the Task 3 source edit removes only the two confirmed unused type imports.
+- `git diff --check` completed with no output.

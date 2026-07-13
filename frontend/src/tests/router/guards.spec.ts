@@ -50,7 +50,15 @@ describe('route guards', () => {
     expect(router.currentRoute.value.path).toBe('/admin')
   })
 
-  it.each(['https://example.com', '//example.com', '/\\example.com', 'javascript:alert(1)', ['/', '//example.com']])(
+  it.each([
+    'https://example.com',
+    '//example.com',
+    '/\\example.com',
+    '/account\\evil',
+    '/checkout\\foo',
+    'javascript:alert(1)',
+    ['/', '//example.com'],
+  ])(
     'rejects an unsafe redirect value: %o',
     (value) => {
       expect(sanitizeRedirect(value)).toBeNull()

@@ -36,11 +36,34 @@ async function submit() {
   <main class="auth-page">
     <form @submit.prevent="submit">
       <h1>登录</h1>
-      <p v-if="error" role="alert">{{ error }}</p>
-      <label>用户名<input v-model.trim="username" name="username" autocomplete="username" required /></label>
-      <label>密码<input v-model="password" name="password" type="password" autocomplete="current-password" required /></label>
-      <button type="submit" :disabled="submitting">{{ submitting ? '登录中' : '登录' }}</button>
-      <RouterLink to="/register">注册账户</RouterLink>
+      <p
+        v-if="error"
+        role="alert"
+      >
+        {{ error }}
+      </p>
+      <label>用户名<input
+        v-model.trim="username"
+        name="username"
+        autocomplete="username"
+        required
+      ></label>
+      <label>密码<input
+        v-model="password"
+        name="password"
+        type="password"
+        autocomplete="current-password"
+        required
+      ></label>
+      <button
+        type="submit"
+        :disabled="submitting"
+      >
+        {{ submitting ? '登录中' : '登录' }}
+      </button>
+      <RouterLink to="/register">
+        注册账户
+      </RouterLink>
     </form>
   </main>
 </template>

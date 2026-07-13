@@ -3,11 +3,21 @@
     <aside aria-label="用户中心导航">
       <h1>用户中心</h1>
       <nav>
-        <RouterLink to="/account">用户档案</RouterLink>
-        <RouterLink to="/account/orders">我的订单</RouterLink>
-        <RouterLink to="/account/bookings">预约记录</RouterLink>
-        <RouterLink to="/account/journeys">互动配方</RouterLink>
-        <RouterLink to="/account/after-sales">售后服务</RouterLink>
+        <RouterLink to="/account">
+          用户档案
+        </RouterLink>
+        <RouterLink to="/account/orders">
+          我的订单
+        </RouterLink>
+        <RouterLink to="/account/bookings">
+          预约记录
+        </RouterLink>
+        <RouterLink to="/account/journeys">
+          互动配方
+        </RouterLink>
+        <RouterLink to="/account/after-sales">
+          售后服务
+        </RouterLink>
       </nav>
     </aside>
     <main><RouterView /></main>

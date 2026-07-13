@@ -13,7 +13,15 @@ const workspace = computed(() => props.kind === 'merchant'
   <section class="workspace-layout">
     <aside :aria-label="`${workspace.title}导航`">
       <h1>{{ workspace.title }}</h1>
-      <nav><RouterLink v-for="link in workspace.links" :key="link.to" :to="link.to">{{ link.label }}</RouterLink></nav>
+      <nav>
+        <RouterLink
+          v-for="link in workspace.links"
+          :key="link.to"
+          :to="link.to"
+        >
+          {{ link.label }}
+        </RouterLink>
+      </nav>
     </aside>
     <main><RouterView /></main>
   </section>
