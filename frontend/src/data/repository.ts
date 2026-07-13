@@ -22,6 +22,21 @@ import type {
 } from '../domain/types'
 
 export type OrderRequestLine = Pick<CartLine, 'productId' | 'quantity'>
+export type RepositoryErrorCode = 'CONTENT_NOT_FOUND'
+
+export class RepositoryError extends Error {
+  constructor(
+    public readonly code: RepositoryErrorCode,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'RepositoryError'
+  }
+}
+
+export function hasRepositoryErrorCode(error: unknown, code: RepositoryErrorCode): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === code
+}
 
 export interface PlatformRepository {
   login(input: LoginInput): Promise<AuthSession>

@@ -57,9 +57,17 @@ describe('public culture pages', () => {
     const { wrapper } = await mountPage(HomePage, '/')
 
     expect(wrapper.get('h1').text()).toBe('德昂族酸茶')
+    const hero = wrapper.get('.culture-hero')
+    const media = hero.get('.culture-hero__image')
+    const overlay = hero.get('.culture-hero__veil')
+    expect(hero.element.tagName).toBe('SECTION')
+    expect(media.element.parentElement).toBe(hero.element)
+    expect(overlay.element.parentElement).toBe(hero.element)
+    expect(hero.find('.card, .el-card, [data-testid="hero-card"]').exists()).toBe(false)
     const action = wrapper.get('[data-testid="primary-journey-action"]')
     expect(action.text()).toBe('开始酸茶之旅')
     expect(action.attributes('href')).toBe('/journey')
+    expect(hero.get('.culture-hero__next').attributes('href')).toBe('#uses')
   })
 
   it('renders a direct authoritative source link in culture detail', async () => {
@@ -104,17 +112,73 @@ describe('public culture pages', () => {
     expect(wrapper.find('[role="status"]').exists()).toBe(false)
   })
 
-  it('shows a useful not-found state when a culture article does not exist', async () => {
+  it('shows a structured not-found state without depending on localized copy', async () => {
     const baseRepository = createDemoRepository(window.localStorage)
     const repository = {
       ...baseRepository,
-      getContent: () => Promise.reject(new Error('内容不存在')),
+      getContent: () => Promise.reject(Object.assign(new Error('arbitrary localized message'), { code: 'CONTENT_NOT_FOUND' })),
     } as PlatformRepository
 
     const { wrapper } = await mountPage(CultureDetailPage, '/culture/missing-article', repository)
     await flushPromises()
 
-    expect(wrapper.get('h1').text()).toBe('没有找到这篇内容')
-    expect(wrapper.get('a').text()).toContain('返回文化专题')
+    const state = wrapper.get('[data-state="not-found"]')
+    expect(state.element.tagName).toBe('SECTION')
+    expect(state.get('a').attributes('href')).toBe('/culture')
+  })
+
+  it('shows a semantic error state for a general culture detail failure', async () => {
+    const baseRepository = createDemoRepository(window.localStorage)
+    const repository = {
+      ...baseRepository,
+      getContent: () => Promise.reject(new Error('服务暂时不可用')),
+    } as PlatformRepository
+
+    const { wrapper } = await mountPage(CultureDetailPage, '/culture/unavailable', repository)
+    await flushPromises()
+
+    const state = wrapper.get('[data-state="error"]')
+    expect(state.attributes('role')).toBe('alert')
+    expect(state.text()).toContain('服务暂时不可用')
+  })
+
+  it('keeps the culture index loading state until the repository resolves', async () => {
+    const baseRepository = createDemoRepository(window.localStorage)
+    let resolveContents!: (contents: ContentArticle[]) => void
+    const pendingContents = new Promise<ContentArticle[]>((resolve) => { resolveContents = resolve })
+    const repository = { ...baseRepository, listContents: () => pendingContents } as PlatformRepository
+
+    const { wrapper } = await mountPage(CultureIndexPage, '/culture', repository)
+
+    expect(wrapper.get('[data-state="loading"]').attributes('role')).toBe('status')
+    resolveContents([])
+    await flushPromises()
+  })
+
+  it('shows a structured empty state when the culture repository has no published content', async () => {
+    const baseRepository = createDemoRepository(window.localStorage)
+    const repository = { ...baseRepository, listContents: () => Promise.resolve([]) } as PlatformRepository
+
+    const { wrapper } = await mountPage(CultureIndexPage, '/culture', repository)
+    await flushPromises()
+
+    expect(wrapper.get('[data-state="empty"]').element.tagName).toBe('DIV')
+    expect(wrapper.find('.article-row').exists()).toBe(false)
+  })
+
+  it('shows a retryable semantic error state when the culture index repository fails', async () => {
+    const baseRepository = createDemoRepository(window.localStorage)
+    const repository = {
+      ...baseRepository,
+      listContents: () => Promise.reject(new Error('文化列表读取失败')),
+    } as PlatformRepository
+
+    const { wrapper } = await mountPage(CultureIndexPage, '/culture', repository)
+    await flushPromises()
+
+    const state = wrapper.get('[data-state="error"]')
+    expect(state.attributes('role')).toBe('alert')
+    expect(state.get('button').element.tagName).toBe('BUTTON')
+    expect(state.text()).toContain('文化列表读取失败')
   })
 })

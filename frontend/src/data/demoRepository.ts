@@ -23,8 +23,15 @@ import { transitionAfterSale, transitionBooking, transitionOrder, transitionProd
 import { createBusinessId } from '../utils/identifiers'
 import { calculateCartTotal } from '../utils/money'
 import { isValidPhone } from '../utils/validation'
-import type { OrderRequestLine, PlatformRepository } from './repository'
-import { createSeedData, DEMO_DATA_VERSION, DEMO_STORAGE_KEY, type DemoData } from './seed'
+import { RepositoryError, type OrderRequestLine, type PlatformRepository } from './repository'
+import {
+  createSeedData,
+  DEMO_DATA_VERSION,
+  DEMO_STORAGE_KEY,
+  LEGACY_DEMO_STORAGE_KEY,
+  migrateDemoDataV3,
+  type DemoData,
+} from './seed'
 
 interface PersistedDemoData { version: number; data: DemoData }
 
@@ -38,6 +45,17 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
   const load = (): DemoData => {
     const serialized = storage.getItem(DEMO_STORAGE_KEY)
     if (serialized === null) {
+      const legacySerialized = storage.getItem(LEGACY_DEMO_STORAGE_KEY)
+      if (legacySerialized !== null) {
+        try {
+          const legacy = JSON.parse(legacySerialized) as PersistedDemoData
+          if (legacy.version === 3 && legacy.data?.sessions !== undefined) {
+            const data = migrateDemoDataV3(legacy.data)
+            storage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ version: DEMO_DATA_VERSION, data }))
+            return data
+          }
+        } catch { /* invalid legacy data is restored from the current seed below */ }
+      }
       const data = createSeedData()
       storage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ version: DEMO_DATA_VERSION, data }))
       return data
@@ -153,7 +171,7 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     async listContents() { return clone(data.contents.filter((content) => content.published)) },
     async getContent(slug) {
       const content = data.contents.find((candidate) => candidate.slug === slug && candidate.published)
-      if (content === undefined) throw new Error('内容不存在')
+      if (content === undefined) throw new RepositoryError('CONTENT_NOT_FOUND', '内容不存在')
       return clone(content)
     },
     async getCart(userId) { userById(userId); return clone(data.carts[userId] ?? []) },

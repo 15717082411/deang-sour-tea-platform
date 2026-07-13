@@ -1,9 +1,6 @@
-import { createDemoRepository } from '../../data/demoRepository'
-import { createSeedData, DEMO_STORAGE_KEY } from '../../data/seed'
+import { createSeedData } from '../../data/seed'
 
 describe('public culture seed content', () => {
-  beforeEach(() => window.localStorage.clear())
-
   it('records every required authoritative source with direct URLs and supported claims', () => {
     const sources = createSeedData().contents.flatMap((article) => article.sources)
     expect(sources).toEqual(expect.arrayContaining([
@@ -49,15 +46,4 @@ describe('public culture seed content', () => {
     expect(seed.products.find(({ id }) => id === 'product-gift')?.image).toBe('/images/product-gift.webp')
   })
 
-  it('rebuilds persisted v3 data so corrected culture facts reach existing demos', async () => {
-    const staleData = createSeedData()
-    staleData.contents[0].sources = []
-    staleData.contents[1].title = '杀青、揉捻与45天发酵'
-    window.localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ version: 3, data: staleData }))
-
-    const contents = await createDemoRepository(window.localStorage).listContents()
-
-    expect(contents.every(({ sources }) => sources.length > 0)).toBe(true)
-    expect(contents.map(({ title }) => title).join('')).not.toContain('45天')
-  })
 })

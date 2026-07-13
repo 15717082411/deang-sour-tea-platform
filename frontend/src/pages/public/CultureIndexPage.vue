@@ -48,12 +48,15 @@ onMounted(loadContents)
           v-if="state === 'loading'"
           class="public-state"
           role="status"
+          data-state="loading"
         >
           正在读取文化专题…
         </p>
         <div
           v-else-if="state === 'error'"
           class="public-state public-state--error"
+          role="alert"
+          data-state="error"
         >
           <p>{{ errorMessage }}</p>
           <button
@@ -66,6 +69,7 @@ onMounted(loadContents)
         <div
           v-else-if="articles.length === 0"
           class="public-state"
+          data-state="empty"
         >
           <h2>暂无已发布内容</h2>
           <p>资料整理完成后会在这里发布。</p>

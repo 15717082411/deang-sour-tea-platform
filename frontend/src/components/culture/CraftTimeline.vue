@@ -28,7 +28,7 @@ const steps = [
     detail: '茶叶装入竹筒或竹篮后密封捆扎。公开材料记录一类坑或地窖工艺为50—70天。',
     icon: PackageOpen,
     image: '/images/craft-fermentation.webp',
-    alt: '密封竹筒与发酵中的酸茶叶，项目原创视觉',
+    alt: '将茶叶压入敞口竹筒并准备封装，项目原创视觉',
   },
   {
     number: '05',

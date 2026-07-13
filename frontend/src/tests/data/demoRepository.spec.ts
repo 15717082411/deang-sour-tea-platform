@@ -1,6 +1,7 @@
 import type { Actor, MerchantApplicationInput, OrderContact } from '../../domain/types'
 import type { PlatformRepository } from '../../data/repository'
 import { createDemoRepository } from '../../data/demoRepository'
+import { createSeedData, DEMO_STORAGE_KEY } from '../../data/seed'
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>()
@@ -54,6 +55,159 @@ async function createApprovedSecondMerchantProduct(repo: PlatformRepository) {
 }
 
 describe('demo repository', () => {
+  it('migrates the real v3 key to v4 without losing user business data', async () => {
+    const storage = new MemoryStorage()
+    const legacy = createSeedData()
+    const customUser = {
+      id: 'user-custom',
+      username: 'custom_user',
+      displayName: '自定义用户',
+      phone: '13800138999',
+      role: 'USER' as const,
+      merchantStatus: 'PENDING' as const,
+    }
+    const customProduct = {
+      id: 'product-custom',
+      merchantId: 'merchant-demo-shop',
+      name: '用户自建商品',
+      category: '自定义',
+      priceCents: 8800,
+      stock: 7,
+      sales: 3,
+      description: '迁移时必须完整保留。',
+      image: '/images/product-tasting.jpg',
+      status: 'DRAFT' as const,
+    }
+    const customContent = {
+      id: 'content-custom',
+      slug: 'user-created-story',
+      title: '用户自建内容',
+      category: '工坊记录',
+      summary: '不得被内置内容覆盖。',
+      body: '用户保存的正文。',
+      cover: '/uploads/custom-cover.jpg',
+      sources: [],
+      published: true,
+    }
+    const customOrder = {
+      id: 'order-custom',
+      orderNo: 'DST-CUSTOM-001',
+      userId: customUser.id,
+      merchantId: 'merchant-demo-shop',
+      lines: [{
+        productId: customProduct.id,
+        productName: customProduct.name,
+        image: '/images/product-tasting.jpg',
+        quantity: 1,
+        unitPriceCents: customProduct.priceCents,
+      }],
+      totalCents: customProduct.priceCents,
+      status: 'PAID' as const,
+      contact: { recipient: '自定义用户', phone: customUser.phone, address: '云南省德宏州自定义地址' },
+      timeline: [{ status: 'PAID', label: '已支付', at: '2026-07-12T00:00:00.000Z' }],
+      createdAt: '2026-07-12T00:00:00.000Z',
+    }
+    const customBooking = {
+      id: 'booking-custom',
+      userId: customUser.id,
+      date: '2026-09-01',
+      people: 3,
+      phone: customUser.phone,
+      code: 'BOOK-CUSTOM-01',
+      status: 'PENDING' as const,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    }
+    const customAfterSale = {
+      id: 'after-sale-custom',
+      orderId: customOrder.id,
+      userId: customUser.id,
+      merchantId: customOrder.merchantId,
+      reason: '保留迁移状态',
+      status: 'PROCESSING' as const,
+      timeline: [{ status: 'PROCESSING', label: '处理中', at: '2026-07-12T00:00:00.000Z' }],
+    }
+    const customApplication = {
+      id: 'merchant-application-custom',
+      userId: customUser.id,
+      shopName: '自定义工坊',
+      contact: customUser.phone,
+      location: '云南省德宏州',
+      introduction: '保留申请状态。',
+      status: 'PENDING' as const,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    }
+
+    legacy.users.push(customUser)
+    legacy.passwords[customUser.id] = 'Custom123!'
+    legacy.sessions['SESSION-custom'] = customUser.id
+    legacy.carts[customUser.id] = [{ productId: customProduct.id, quantity: 2, unitPriceCents: customProduct.priceCents }]
+    legacy.products[0] = { ...legacy.products[0], image: '/images/product-tasting.jpg', stock: 11, status: 'OFF_SHELF' }
+    legacy.products[1] = { ...legacy.products[1], image: '/images/product-gift.jpg', stock: 13 }
+    legacy.products.push(customProduct)
+    legacy.contents[0] = { ...legacy.contents[0], title: '旧酸茶科普', body: '旧正文', cover: '/images/content-about.jpg', sources: [] }
+    legacy.contents[1] = { ...legacy.contents[1], title: '杀青、揉捻与45天发酵', body: '旧工艺正文', cover: '/images/content-craft.jpg', sources: [] }
+    legacy.contents.push(customContent)
+    legacy.orders[0].lines[0].image = '/images/product-tasting.jpg'
+    legacy.orders[1].lines[0].image = '/images/product-gift.jpg'
+    legacy.orders.push(customOrder)
+    legacy.afterSales.push(customAfterSale)
+    legacy.bookings.push(customBooking)
+    legacy.merchantApplications.push(customApplication)
+    const serializedV3 = JSON.stringify({ version: 3, data: legacy })
+    storage.setItem('deang-sour-tea:v3', serializedV3)
+
+    const repo = createDemoRepository(storage)
+    const migrated = JSON.parse(storage.getItem(DEMO_STORAGE_KEY) ?? '{}') as { version: number; data: typeof legacy }
+
+    await expect(repo.validateSession(customUser.id, 'SESSION-custom')).resolves.toMatchObject({ user: customUser })
+    await expect(repo.getCart(customUser.id)).resolves.toEqual(legacy.carts[customUser.id])
+    await expect(repo.listOrders(actorFor(customUser))).resolves.toContainEqual(customOrder)
+    await expect(repo.listBookings(actorFor(customUser))).resolves.toContainEqual(customBooking)
+    await expect(repo.getProduct(customProduct.id)).resolves.toEqual(customProduct)
+    expect(await repo.listContents()).toContainEqual(customContent)
+    expect((await repo.getContent('what-is-sour-tea')).sources.length).toBeGreaterThan(0)
+    expect((await repo.getContent('fermentation-craft')).title).not.toContain('45天')
+    expect(await repo.getProduct('product-tasting')).toMatchObject({ image: '/images/product-tasting.webp', stock: 11, status: 'OFF_SHELF' })
+    expect(await repo.getProduct('product-gift')).toMatchObject({ image: '/images/product-gift.webp', stock: 13 })
+    expect(migrated).toMatchObject({ version: 4 })
+    expect(migrated.data.users).toEqual(legacy.users)
+    expect(migrated.data.passwords).toEqual(legacy.passwords)
+    expect(migrated.data.sessions).toEqual(legacy.sessions)
+    expect(migrated.data.afterSales).toContainEqual(customAfterSale)
+    expect(migrated.data.merchantApplications).toContainEqual(customApplication)
+    expect(migrated.data.orders[0].lines[0].image).toBe('/images/product-tasting.webp')
+    expect(migrated.data.orders[1].lines[0].image).toBe('/images/product-gift.webp')
+    expect(migrated.data.orders.find(({ id }) => id === customOrder.id)).toEqual(customOrder)
+    expect(storage.getItem('deang-sour-tea:v3')).toBe(serializedV3)
+  })
+
+  it('adds a missing built-in culture article once and leaves an existing v4 migration unchanged', async () => {
+    const storage = new MemoryStorage()
+    const legacy = createSeedData()
+    legacy.contents = legacy.contents.filter(({ id }) => id !== 'content-craft')
+    legacy.contents.push({
+      id: 'content-migration-sentinel',
+      slug: 'migration-sentinel',
+      title: '迁移保留内容',
+      category: '用户内容',
+      summary: '用于证明补齐不等于重建。',
+      body: '必须原样保留。',
+      cover: '/uploads/sentinel.jpg',
+      sources: [],
+      published: true,
+    })
+    storage.setItem('deang-sour-tea:v3', JSON.stringify({ version: 3, data: legacy }))
+
+    const firstRepo = createDemoRepository(storage)
+    await expect(firstRepo.getContent('fermentation-craft')).resolves.toMatchObject({ id: 'content-craft' })
+    await expect(firstRepo.getContent('migration-sentinel')).resolves.toMatchObject({ id: 'content-migration-sentinel' })
+    const migratedOnce = storage.getItem(DEMO_STORAGE_KEY)
+
+    const secondRepo = createDemoRepository(storage)
+    await expect(secondRepo.getContent('fermentation-craft')).resolves.toMatchObject({ id: 'content-craft' })
+    expect(storage.getItem(DEMO_STORAGE_KEY)).toBe(migratedOnce)
+  })
+
   it('validates a session only when its user id and session id match', async () => {
     const repo = createDemoRepository(new MemoryStorage())
     const session = await repo.login({ username: 'merchant_demo', password: 'Demo123!' })
@@ -61,6 +215,12 @@ describe('demo repository', () => {
     await expect(repo.validateSession(session.user.id, session.sessionId)).resolves.toEqual(session)
     await expect(repo.validateSession('admin-demo', session.sessionId)).rejects.toThrow('会话无效')
     await expect(repo.validateSession(session.user.id, 'SESSION-forged')).rejects.toThrow('会话无效')
+  })
+
+  it('reports missing content with a stable repository error code', async () => {
+    const repo = createDemoRepository(new MemoryStorage())
+
+    await expect(repo.getContent('missing-content')).rejects.toMatchObject({ code: 'CONTENT_NOT_FOUND' })
   })
 
   it('invalidates a session on logout', async () => {

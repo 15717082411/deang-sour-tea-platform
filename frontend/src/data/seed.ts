@@ -24,6 +24,7 @@ export interface DemoData {
 
 export const DEMO_STORAGE_KEY = 'deang-sour-tea:v4'
 export const DEMO_DATA_VERSION = 4
+export const LEGACY_DEMO_STORAGE_KEY = 'deang-sour-tea:v3'
 
 const seedTimestamp = '2026-07-13T00:00:00.000Z'
 
@@ -124,4 +125,39 @@ export function createSeedData(): DemoData {
     bookings: [{ id: 'booking-pending', userId: 'user-demo', date: '2026-08-01', people: 2, phone: '13800138000', code: 'BOOK-DEMO-01', status: 'PENDING', createdAt: seedTimestamp }],
     merchantApplications: [{ id: 'merchant-application-pending', userId: 'user-demo', shopName: '山野酸茶小铺', contact: '13800138000', location: '云南省德宏州芒市', introduction: '专注德昂族酸茶文化体验。', status: 'PENDING', createdAt: seedTimestamp }],
   }
+}
+
+const contentSeedIds = new Set(['content-about', 'content-craft'])
+const builtInImageMigrations: Record<string, { from: string; to: string }> = {
+  'product-tasting': { from: '/images/product-tasting.jpg', to: '/images/product-tasting.webp' },
+  'product-gift': { from: '/images/product-gift.jpg', to: '/images/product-gift.webp' },
+}
+
+export function migrateDemoDataV3(legacyData: DemoData): DemoData {
+  const migrated = JSON.parse(JSON.stringify(legacyData)) as DemoData
+  const currentContents = createSeedData().contents.filter(({ id }) => contentSeedIds.has(id))
+  const currentContentById = new Map(currentContents.map((content) => [content.id, content]))
+
+  migrated.contents = migrated.contents.map((content) => currentContentById.get(content.id) ?? content)
+  for (const content of currentContents) {
+    if (!migrated.contents.some(({ id }) => id === content.id)) migrated.contents.push(content)
+  }
+
+  migrated.products = migrated.products.map((product) => {
+    const imageMigration = builtInImageMigrations[product.id]
+    return imageMigration !== undefined && product.image === imageMigration.from
+      ? { ...product, image: imageMigration.to }
+      : product
+  })
+  migrated.orders = migrated.orders.map((order) => ({
+    ...order,
+    lines: order.lines.map((line) => {
+      const imageMigration = builtInImageMigrations[line.productId]
+      return imageMigration !== undefined && line.image === imageMigration.from
+        ? { ...line, image: imageMigration.to }
+        : line
+    }),
+  }))
+
+  return migrated
 }

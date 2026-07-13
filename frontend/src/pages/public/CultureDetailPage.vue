@@ -3,6 +3,7 @@ import { ArrowLeft, RotateCcw } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import SourceList from '../../components/culture/SourceList.vue'
+import { hasRepositoryErrorCode } from '../../data/repository'
 import type { ContentArticle } from '../../domain/types'
 import { useAppStore } from '../../stores/app'
 
@@ -28,7 +29,7 @@ async function loadArticle(): Promise<void> {
   } catch (error) {
     if (activeRequest !== requestId) return
     errorMessage.value = error instanceof Error ? error.message : '文化内容暂时无法读取'
-    state.value = errorMessage.value === '内容不存在' ? 'not-found' : 'error'
+    state.value = hasRepositoryErrorCode(error, 'CONTENT_NOT_FOUND') ? 'not-found' : 'error'
   }
 }
 
@@ -44,6 +45,7 @@ watch(() => route.params.slug, loadArticle, { immediate: true })
       v-if="state === 'loading'"
       class="public-state public-state--page"
       role="status"
+      data-state="loading"
     >
       正在加载文化资料…
     </div>
@@ -51,6 +53,7 @@ watch(() => route.params.slug, loadArticle, { immediate: true })
     <section
       v-else-if="state === 'not-found'"
       class="public-state public-state--page"
+      data-state="not-found"
     >
       <p class="section-kicker">
         404 · 文化资料
@@ -72,6 +75,8 @@ watch(() => route.params.slug, loadArticle, { immediate: true })
     <section
       v-else-if="state === 'error'"
       class="public-state public-state--page public-state--error"
+      role="alert"
+      data-state="error"
     >
       <p class="section-kicker">
         读取失败
