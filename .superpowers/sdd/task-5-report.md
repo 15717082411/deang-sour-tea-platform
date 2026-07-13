@@ -42,10 +42,12 @@
 
 独立复核修复第二次运行 `npm test -- src/tests/public src/tests/data/demoRepository.spec.ts`：退出码 1。稳定仓库错误码、详情 not-found/error 语义状态和索引 loading/empty/error 语义状态共 6 个断言失败。
 
+最终迁移加固先增加用户修改字段、未知扩展字段、损坏顶层集合、损坏订单行、重复稳定 ID 与统一图片 alt 回归；旧实现不能同时满足这些断言。修复后改为基于 v3 快照的逐字段升级，并在迁移前完成运行时结构校验。
+
 ### GREEN
 
-- `npm test -- src/tests/public src/tests/data/demoRepository.spec.ts`：5 个测试文件、36 个测试通过。
-- `npm test`：10 个测试文件、84 个测试通过。
+- `npm test -- src/tests/public src/tests/data/demoRepository.spec.ts`：5 个测试文件、44 个测试通过。
+- `npm test`：10 个测试文件、92 个测试通过。
 - `npm run lint`：通过，零警告。
 - `npm run typecheck`：通过。
 - `npm run build`：通过；五个公共页面生成独立懒加载 chunk。
@@ -83,3 +85,4 @@
 
 - 初始提交：`Build Deang sour tea culture experience`
 - 独立复核修复：`fix: preserve demo data during content migration`
+- 最终迁移加固：`fix: harden legacy demo migration`
