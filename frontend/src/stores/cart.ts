@@ -197,11 +197,17 @@ export const useCartStore = defineStore('cart', () => {
     await persist([], activeOwnerId())
   }
 
-  async function removeMerchant(merchantId: string): Promise<void> {
+  async function removeMerchant(merchantId: string, expectedOwnerId = activeOwnerId()): Promise<void> {
+    if (activeOwnerId() !== expectedOwnerId) throw new Error('购物车账号已切换，请重试')
     await ensureActorLoaded()
-    const ownerId = activeOwnerId()
+    if (activeOwnerId() !== expectedOwnerId) throw new Error('购物车账号已切换，请重试')
     const purchasedIds = new Set(items.value.filter((item) => item.merchantId === merchantId).map(({ productId }) => productId))
-    await persist(activeLines.value.filter((line) => !purchasedIds.has(line.productId)).map(({ productId, quantity }) => ({ productId, quantity })), ownerId)
+    await persist(
+      activeLines.value
+        .filter((line) => !purchasedIds.has(line.productId))
+        .map(({ productId, quantity }) => ({ productId, quantity })),
+      expectedOwnerId,
+    )
   }
 
   return {

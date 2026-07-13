@@ -73,3 +73,23 @@
 
 - 生产构建仍报告主入口 chunk 约 1.09 MB；商城页面已懒加载，但公共依赖仍可在后续任务中进一步拆包。
 - localStorage Repository 满足两个实例的顺序操作刷新合同；浏览器多标签页在同一毫秒内真正并发写入仍不具备事务锁，这是 localStorage 存储模型的固有限制。
+
+## 跨账号异步隔离复核修复
+
+### RED
+
+- 新增 `frontend/src/tests/shop/actorIsolation.spec.ts`，首次运行 `npm test -- src/tests/shop/actorIsolation.spec.ts`：`4 failed / 4 total`。
+- 失败分别复现：旧 checkout 清空 B 的同商家购物车；A checkout rejection 关闭 B 的 pending；A payment rejection 关闭 B 的 pending；A 的订单列表响应写入 B 的 store。
+
+### GREEN
+
+- orders store 为 actor 切换引入递增 `actorEpoch`，并为 checkout、payment、order detail 和 order list 分别维护 request sequence。仅当前 actor epoch 与当前 flight 可以写入状态、错误和 pending。
+- checkout 在第一个异步操作前固定 actor，并将固定 `expectedOwnerId` 传给 `cart.removeMerchant`。购物车清理在异步前后校验该 owner，账号已切换时不会读取或保存新账号购物车。
+- `loadOrder` 和 `loadOrders` 在响应提交前校验 actor epoch、用户、角色及请求序号；旧账号响应不再进入当前 store。
+
+### 验证
+
+- 竞态专项：`npm test -- src/tests/shop/actorIsolation.spec.ts`，`1 file / 4 tests passed`。
+- 商城专项：`npm test -- src/tests/shop`，`8 files / 38 tests passed`。
+- 全量测试：`npm test`，`21 files / 174 tests passed`。
+- `npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check` 均通过；构建仅保留上文记录的既有 chunk 体积警告。

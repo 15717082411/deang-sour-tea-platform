@@ -31,7 +31,11 @@ export const useOrdersStore = defineStore('orders', {
     paymentPending: false,
     error: null as string | null,
     checkoutKeys: {} as Record<string, string>,
+    actorEpoch: 0,
+    checkoutSequence: 0,
+    paymentSequence: 0,
     orderLoadSequence: 0,
+    orderListSequence: 0,
   }),
   actions: {
     resetForActorChange() {
@@ -40,7 +44,11 @@ export const useOrdersStore = defineStore('orders', {
       this.checkoutPending = false
       this.paymentPending = false
       this.error = null
+      this.actorEpoch += 1
+      this.checkoutSequence += 1
+      this.paymentSequence += 1
       this.orderLoadSequence += 1
+      this.orderListSequence += 1
       checkoutFlights.delete(this)
     },
     remember(order: Order) {
@@ -72,30 +80,39 @@ export const useOrdersStore = defineStore('orders', {
       if (flight?.signature === signature) return flight.promise
       const key = this.checkoutKeys[signature] ?? createBusinessId('CHECKOUT')
       this.checkoutKeys[signature] = key
+      const actorEpoch = this.actorEpoch
+      const requestSequence = ++this.checkoutSequence
+      const actorStillCurrent = () => (
+        this.actorEpoch === actorEpoch
+        && auth.actor?.userId === actor.userId
+        && auth.actor.role === actor.role
+      )
+      const ownsCheckoutState = () => actorStillCurrent() && this.checkoutSequence === requestSequence
       this.checkoutPending = true
       this.error = null
       const promise = (async () => {
         try {
           const catalog = useCatalogStore()
           await catalog.refreshProducts(group.items.map(({ productId }) => productId))
+          if (!actorStillCurrent()) throw new Error('登录账号已切换，请重新核对购物车')
           const refreshedGroup = cart.groups.find((candidate) => candidate.merchantId === merchantId)
           if (refreshedGroup === undefined || refreshedGroup.invalid) throw new Error('商品价格或库存已变化，请检查购物车')
           if (refreshedGroup.items.some((item) => item.product?.merchantId !== merchantId)) throw new Error('订单仅支持单个商家')
           const lines = refreshedGroup.items.map(({ productId, quantity }) => ({ productId, quantity }))
           const order = await useAppStore().repository.createOrder(actor, lines, normalizedContact, key)
-          if (auth.actor?.userId !== actor.userId) throw new Error('登录账号已切换，请重新核对购物车')
-          await cart.removeMerchant(merchantId)
-          if (auth.actor?.userId !== actor.userId) throw new Error('登录账号已切换，请重新核对购物车')
-          this.remember(order)
+          if (!actorStillCurrent()) throw new Error('登录账号已切换，请重新核对购物车')
+          await cart.removeMerchant(merchantId, actor.userId)
+          if (!actorStillCurrent()) throw new Error('登录账号已切换，请重新核对购物车')
+          if (ownsCheckoutState()) this.remember(order)
           return order
         } catch (error) {
-          this.error = error instanceof Error ? error.message : '订单创建失败'
+          if (ownsCheckoutState()) this.error = error instanceof Error ? error.message : '订单创建失败'
           throw error
         }
       })()
       checkoutFlights.set(this, { signature, promise })
       const cleanup = () => {
-        this.checkoutPending = false
+        if (ownsCheckoutState()) this.checkoutPending = false
         if (checkoutFlights.get(this)?.promise === promise) checkoutFlights.delete(this)
       }
       void promise.then(cleanup, cleanup)
@@ -105,34 +122,54 @@ export const useOrdersStore = defineStore('orders', {
       const auth = useAuthStore()
       if (auth.actor === null || auth.user?.role !== 'USER') throw new Error('无权查看该订单')
       const actor = auth.actor
+      const actorEpoch = this.actorEpoch
       const requestSequence = ++this.orderLoadSequence
       this.currentOrder = null
       const order = await useAppStore().repository.getOrder(actor, orderId)
       if (order.id !== expectedOrderId) throw new Error('订单响应与请求不匹配')
-      if (requestSequence === this.orderLoadSequence && auth.actor?.userId === actor.userId) this.remember(order)
+      if (this.actorEpoch !== actorEpoch || auth.actor?.userId !== actor.userId || auth.actor.role !== actor.role) {
+        throw new Error('登录账号已切换，请重新加载订单')
+      }
+      if (requestSequence === this.orderLoadSequence) this.remember(order)
       return order
     },
     async loadOrders(): Promise<Order[]> {
       const auth = useAuthStore()
       if (auth.actor === null || auth.user?.role !== 'USER') throw new Error('无权查看订单')
-      this.orders = await useAppStore().repository.listOrders(auth.actor)
-      return this.orders
+      const actor = auth.actor
+      const actorEpoch = this.actorEpoch
+      const requestSequence = ++this.orderListSequence
+      const orders = await useAppStore().repository.listOrders(actor)
+      if (this.actorEpoch !== actorEpoch || auth.actor?.userId !== actor.userId || auth.actor.role !== actor.role) {
+        throw new Error('登录账号已切换，请重新加载订单')
+      }
+      if (requestSequence === this.orderListSequence) this.orders = orders
+      return orders
     },
     async pay(orderId: string, result: PaymentResult): Promise<Order> {
       const auth = useAuthStore()
       if (auth.actor === null || auth.user?.role !== 'USER') throw new Error('无权支付该订单')
       const actor = auth.actor
+      const actorEpoch = this.actorEpoch
+      const requestSequence = ++this.paymentSequence
+      const actorStillCurrent = () => (
+        this.actorEpoch === actorEpoch
+        && auth.actor?.userId === actor.userId
+        && auth.actor.role === actor.role
+      )
+      const ownsPaymentState = () => actorStillCurrent() && this.paymentSequence === requestSequence
       this.paymentPending = true
       this.error = null
       try {
         const order = await useAppStore().repository.payOrder(actor, orderId, result)
-        if (auth.actor?.userId === actor.userId) this.remember(order)
+        if (!actorStillCurrent()) throw new Error('登录账号已切换，请重新加载订单')
+        if (ownsPaymentState()) this.remember(order)
         return order
       } catch (error) {
-        this.error = error instanceof Error ? error.message : '支付请求失败'
+        if (ownsPaymentState()) this.error = error instanceof Error ? error.message : '支付请求失败'
         throw error
       } finally {
-        this.paymentPending = false
+        if (ownsPaymentState()) this.paymentPending = false
       }
     },
   },
