@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEMO_STORAGE_KEY } from '../../data/seed'
 import { contact, createCommerceContext } from './context'
 
 async function readyUserCart() {
@@ -110,9 +111,9 @@ describe('checkout store', () => {
     await expect(context.orders.checkout('missing-merchant', contact)).rejects.toThrow()
     await context.cart.setQuantity('product-tasting', 80)
     const product = await context.repository.getProduct('product-tasting')
-    const seed = JSON.parse(window.localStorage.getItem('deang-sour-tea:v4') ?? '{}')
+    const seed = JSON.parse(window.localStorage.getItem(DEMO_STORAGE_KEY) ?? '{}')
     seed.data.products.find((candidate: { id: string }) => candidate.id === product.id).stock = 1
-    window.localStorage.setItem('deang-sour-tea:v4', JSON.stringify(seed))
+    window.localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(seed))
 
     await expect(context.orders.checkout('merchant-demo-shop', contact)).rejects.toThrow('库存')
   })

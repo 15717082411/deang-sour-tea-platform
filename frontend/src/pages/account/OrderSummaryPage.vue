@@ -16,7 +16,7 @@ const order = ref<Order | null>(null)
 let loadSequence = 0
 
 const statusLabels: Record<OrderStatus, string> = {
-  PENDING_PAYMENT: '待支付', PAID: '已支付', SHIPPED: '已发货', RECEIVED: '已收货', COMPLETED: '已完成', CANCELLED: '已取消', AFTER_SALE_REQUESTED: '售后处理中',
+  PENDING_PAYMENT: '待支付', PAID: '已支付', SHIPPED: '已发货', RECEIVED: '已收货', COMPLETED: '已完成', CANCELLED: '已取消',
 }
 const statusLabel = computed(() => order.value === null ? '' : statusLabels[order.value.status])
 

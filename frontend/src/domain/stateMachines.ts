@@ -11,12 +11,11 @@ export class DomainTransitionError extends Error {
 
 const orderTransitions: TransitionMap<OrderStatus> = {
   PENDING_PAYMENT: { PAY_SUCCESS: 'PAID', PAY_FAILURE: 'PENDING_PAYMENT', CANCEL: 'CANCELLED' },
-  PAID: { SHIP: 'SHIPPED', REQUEST_AFTER_SALE: 'AFTER_SALE_REQUESTED' },
-  SHIPPED: { RECEIVE: 'RECEIVED', REQUEST_AFTER_SALE: 'AFTER_SALE_REQUESTED' },
-  RECEIVED: { COMPLETE: 'COMPLETED', REQUEST_AFTER_SALE: 'AFTER_SALE_REQUESTED' },
+  PAID: { SHIP: 'SHIPPED' },
+  SHIPPED: { RECEIVE: 'RECEIVED' },
+  RECEIVED: { COMPLETE: 'COMPLETED' },
   COMPLETED: {},
   CANCELLED: {},
-  AFTER_SALE_REQUESTED: {},
 }
 
 const productTransitions: TransitionMap<ProductStatus> = {

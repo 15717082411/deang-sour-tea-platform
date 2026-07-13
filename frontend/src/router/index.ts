@@ -33,7 +33,7 @@ const publicRoutes: RouteRecordRaw[] = [
   { path: 'cart', name: 'cart', component: () => import('../pages/shop/CartPage.vue') },
   { path: 'checkout', name: 'checkout', component: () => import('../pages/shop/CheckoutPage.vue'), meta: { requiresAuth: true, roles: ['USER'] } },
   { path: 'payment/:orderId', name: 'payment', component: () => import('../pages/shop/PaymentPage.vue'), meta: { requiresAuth: true, roles: ['USER'] } },
-  { path: 'booking', name: 'booking', component: PendingPage, meta: { requiresAuth: true } },
+  { path: 'booking', name: 'booking', component: () => import('../pages/booking/BookingPage.vue'), meta: { requiresAuth: true, roles: ['USER'] } },
   { path: 'login', name: 'login', component: LoginPage },
   { path: 'register', name: 'register', component: RegisterPage },
 ]
@@ -42,13 +42,13 @@ const routes: RouteRecordRaw[] = [
   { path: '/', component: PublicLayout, children: publicRoutes },
   { path: '/merchant/apply', name: 'merchant-apply', component: PendingPage, meta: { requiresAuth: true, roles: ['USER', 'MERCHANT'] } },
   {
-    path: '/account', component: AccountLayout, meta: { requiresAuth: true }, children: [
-      { path: '', name: 'account', component: PendingPage },
-      { path: 'orders', name: 'account-orders', component: PendingPage },
-      { path: 'orders/:id', name: 'account-order-detail', component: () => import('../pages/account/OrderSummaryPage.vue'), meta: { roles: ['USER'] } },
-      { path: 'bookings', name: 'account-bookings', component: PendingPage },
-      { path: 'journeys', name: 'account-journeys', component: PendingPage },
-      { path: 'after-sales', name: 'account-after-sales', component: PendingPage },
+    path: '/account', component: AccountLayout, meta: { requiresAuth: true, roles: ['USER'] }, children: [
+      { path: '', name: 'account', component: () => import('../pages/account/AccountOverviewPage.vue'), meta: { roles: ['USER'] } },
+      { path: 'orders', name: 'account-orders', component: () => import('../pages/account/OrdersPage.vue'), meta: { roles: ['USER'] } },
+      { path: 'orders/:id', name: 'account-order-detail', component: () => import('../pages/account/OrderDetailPage.vue'), meta: { roles: ['USER'] } },
+      { path: 'bookings', name: 'account-bookings', component: () => import('../pages/account/BookingsPage.vue'), meta: { roles: ['USER'] } },
+      { path: 'journeys', name: 'account-journeys', component: () => import('../pages/account/PostersPage.vue'), meta: { roles: ['USER'] } },
+      { path: 'after-sales', name: 'account-after-sales', component: () => import('../pages/account/AfterSalesPage.vue'), meta: { roles: ['USER'] } },
     ],
   },
   {

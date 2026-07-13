@@ -23,6 +23,7 @@ import { transitionAfterSale, transitionBooking, transitionOrder, transitionProd
 import { createBusinessId } from '../utils/identifiers'
 import { calculateCartTotal } from '../utils/money'
 import { isValidPhone } from '../utils/validation'
+import { normalizePosterKey, readJourneyPosterStorage } from './posterStorage'
 import { RepositoryError, type CartRequestLine, type PlatformRepository } from './repository'
 import {
   createSeedData,
@@ -30,14 +31,13 @@ import {
   DEMO_STORAGE_KEY,
   LEGACY_DEMO_STORAGE_KEY,
   migrateDemoDataV3,
+  migrateDemoDataV4,
   type DemoData,
+  V3_DEMO_STORAGE_KEY,
 } from './seed'
 
 const clone = <Value>(value: Value): Value => JSON.parse(JSON.stringify(value)) as Value
-const now = (): string => new Date().toISOString()
-function orderEvent(status: string, label: string, note?: string) {
-  return { status, label, at: now(), ...(note === undefined ? {} : { note }) }
-}
+export type DemoClock = () => Date
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -70,7 +70,14 @@ function hasVersionedDemoData(value: unknown, version: number): value is { versi
   return isRecord(value) && value.version === version && isDemoData(value.data)
 }
 
-export function createDemoRepository(storage: Storage): PlatformRepository {
+export function createDemoRepository(storage: Storage, clock: DemoClock = () => new Date()): PlatformRepository {
+  const now = (): string => clock().toISOString()
+  const orderEvent = (status: string, label: string, note?: string) => ({
+    status,
+    label,
+    at: now(),
+    ...(note === undefined ? {} : { note }),
+  })
   const load = (): DemoData => {
     const serialized = storage.getItem(DEMO_STORAGE_KEY)
     if (serialized === null) {
@@ -78,8 +85,19 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       if (legacySerialized !== null) {
         try {
           const legacy: unknown = JSON.parse(legacySerialized)
+          if (hasVersionedDemoData(legacy, 4)) {
+            const data = migrateDemoDataV4(legacy.data)
+            storage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ version: DEMO_DATA_VERSION, data }))
+            return data
+          }
+        } catch { /* try the older legacy key below */ }
+      }
+      const v3Serialized = storage.getItem(V3_DEMO_STORAGE_KEY)
+      if (v3Serialized !== null) {
+        try {
+          const legacy: unknown = JSON.parse(v3Serialized)
           if (hasVersionedDemoData(legacy, 3)) {
-            const data = migrateDemoDataV3(legacy.data)
+            const data = migrateDemoDataV4(migrateDemoDataV3(legacy.data))
             storage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ version: DEMO_DATA_VERSION, data }))
             return data
           }
@@ -113,7 +131,7 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
   }
   const orderById = (orderId: string): Order => {
     const order = data.orders.find((candidate) => candidate.id === orderId)
-    if (order === undefined) throw new Error('订单不存在')
+    if (order === undefined) throw new RepositoryError('ORDER_NOT_FOUND', '订单不存在')
     return order
   }
   const authenticatedActor = (actor: Actor): User => {
@@ -137,7 +155,7 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     if (user.role === 'ADMIN') return
     if (user.role === 'USER' && order.userId === user.id) return
     if (user.role === 'MERCHANT' && merchantId(actor) === order.merchantId) return
-    throw new Error('无权访问该订单')
+    throw new RepositoryError('ORDER_FORBIDDEN', '无权访问该订单')
   }
   const createSession = (user: User): AuthSession => {
     const sessionId = createBusinessId('SESSION')
@@ -165,6 +183,38 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
   }
   const validateIdempotencyKey = (key: string): void => {
     if (typeof key !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(key)) throw new Error('幂等键格式无效')
+  }
+  const afterSaleById = (afterSaleId: string): AfterSale => {
+    const afterSale = data.afterSales.find((candidate) => candidate.id === afterSaleId)
+    if (afterSale === undefined) throw new RepositoryError('AFTER_SALE_NOT_FOUND', '售后申请不存在')
+    return afterSale
+  }
+  const bookingById = (bookingId: string): Booking => {
+    const booking = data.bookings.find((candidate) => candidate.id === bookingId)
+    if (booking === undefined) throw new RepositoryError('BOOKING_NOT_FOUND', '预约不存在')
+    return booking
+  }
+  const bookingUser = (actor: Actor): User => {
+    const user = authenticatedActor(actor)
+    if (user.role !== 'USER') throw new RepositoryError('BOOKING_FORBIDDEN', '当前身份无权操作预约')
+    return user
+  }
+  const bookingAdmin = (actor: Actor): User => {
+    const user = authenticatedActor(actor)
+    if (user.role !== 'ADMIN') throw new RepositoryError('BOOKING_FORBIDDEN', '仅管理员可以核销预约')
+    return user
+  }
+  const localDate = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  const isStrictCalendarDate = (value: string): boolean => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+    const [year, month, day] = value.split('-').map(Number)
+    const parsed = new Date(year, month - 1, day)
+    return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day
   }
 
   return {
@@ -300,8 +350,9 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     async receiveOrder(actor, orderId) {
       refresh()
       const order = orderById(orderId)
-      const user = actorRole(actor, 'USER')
-      if (user.id !== order.userId) throw new Error('无权操作该订单')
+      const user = authenticatedActor(actor)
+      if (user.role !== 'USER' || user.id !== order.userId) throw new RepositoryError('ORDER_FORBIDDEN', '无权操作该订单')
+      if (order.status !== 'SHIPPED') throw new RepositoryError('ORDER_RECEIVE_INVALID_STATUS', '当前订单状态不能确认收货')
       order.status = transitionOrder(order.status, 'RECEIVE')
       order.timeline.push(orderEvent(order.status, '用户已收货'))
       persist()
@@ -316,59 +367,127 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     async requestAfterSale(actor, orderId, reason) {
       refresh()
       const order = orderById(orderId)
-      const user = actorRole(actor, 'USER')
-      if (user.id !== order.userId || !reason.trim()) throw new Error('无权申请售后')
-      if (data.afterSales.some((afterSale) => afterSale.orderId === orderId)) throw new Error('订单已有售后申请')
-      order.status = transitionOrder(order.status, 'REQUEST_AFTER_SALE')
-      order.timeline.push(orderEvent(order.status, '已申请售后', reason))
-      const afterSale: AfterSale = { id: createBusinessId('AFTER_SALE'), orderId, userId: order.userId, merchantId: order.merchantId, reason, status: 'REQUESTED', timeline: [orderEvent('REQUESTED', '售后申请已提交', reason)] }
+      const user = authenticatedActor(actor)
+      if (user.role !== 'USER' || user.id !== order.userId) throw new RepositoryError('AFTER_SALE_FORBIDDEN', '无权申请该订单售后')
+      const normalizedReason = reason.trim()
+      if (!normalizedReason) throw new RepositoryError('AFTER_SALE_REASON_REQUIRED', '请填写售后原因')
+      if (!(['PAID', 'SHIPPED', 'RECEIVED'] as const).includes(order.status as 'PAID' | 'SHIPPED' | 'RECEIVED')) {
+        throw new RepositoryError('AFTER_SALE_INVALID_STATUS', '当前订单状态不能申请售后')
+      }
+      const activeStatuses = new Set<AfterSale['status']>(['REQUESTED', 'PROCESSING', 'APPROVED'])
+      if (data.afterSales.some((afterSale) => afterSale.orderId === orderId && activeStatuses.has(afterSale.status))) {
+        throw new RepositoryError('AFTER_SALE_DUPLICATE', '订单已有进行中的售后申请')
+      }
+      order.timeline.push(orderEvent('AFTER_SALE_REQUESTED', '已申请售后', normalizedReason))
+      const afterSale: AfterSale = {
+        id: createBusinessId('AFTER_SALE'),
+        orderId,
+        userId: order.userId,
+        merchantId: order.merchantId,
+        reason: normalizedReason,
+        status: 'REQUESTED',
+        timeline: [orderEvent('REQUESTED', '售后申请已提交', normalizedReason)],
+      }
       data.afterSales.push(afterSale)
       persist()
       return clone(afterSale)
     },
     async resolveAfterSale(actor, afterSaleId, decision, note) {
       refresh()
-      const afterSale = data.afterSales.find((candidate) => candidate.id === afterSaleId)
-      if (afterSale === undefined) throw new Error('售后申请不存在')
-      if (afterSale.merchantId !== merchantId(actor)) throw new Error('无权处理该售后')
+      const afterSale = afterSaleById(afterSaleId)
+      let ownerId: string
+      try { ownerId = merchantId(actor) } catch { throw new RepositoryError('AFTER_SALE_FORBIDDEN', '无权处理该售后') }
+      if (afterSale.merchantId !== ownerId) throw new RepositoryError('AFTER_SALE_FORBIDDEN', '无权处理该售后')
+      if (afterSale.status !== 'REQUESTED') throw new RepositoryError('AFTER_SALE_INVALID_STATUS', '当前售后状态不能处理')
+      const normalizedNote = note.trim()
       afterSale.status = transitionAfterSale(afterSale.status, 'PROCESS')
-      afterSale.timeline.push(orderEvent(afterSale.status, '商家开始处理', note))
+      afterSale.timeline.push(orderEvent(afterSale.status, '商家开始处理', normalizedNote))
       afterSale.status = transitionAfterSale(afterSale.status, decision)
-      afterSale.resolutionNote = note
-      afterSale.timeline.push(orderEvent(afterSale.status, decision === 'APPROVE' ? '售后已通过' : '售后已拒绝', note))
+      afterSale.resolutionNote = normalizedNote
+      afterSale.timeline.push(orderEvent(afterSale.status, decision === 'APPROVE' ? '售后已通过' : '售后已拒绝', normalizedNote))
+      persist()
+      return clone(afterSale)
+    },
+    async refundAfterSale(actor, afterSaleId, note) {
+      refresh()
+      const afterSale = afterSaleById(afterSaleId)
+      let ownerId: string
+      try { ownerId = merchantId(actor) } catch { throw new RepositoryError('AFTER_SALE_FORBIDDEN', '无权执行模拟退款') }
+      if (afterSale.merchantId !== ownerId) throw new RepositoryError('AFTER_SALE_FORBIDDEN', '无权执行模拟退款')
+      if (afterSale.status !== 'APPROVED') throw new RepositoryError('AFTER_SALE_INVALID_STATUS', '当前售后状态不能退款')
+      afterSale.status = transitionAfterSale(afterSale.status, 'REFUND')
+      afterSale.timeline.push(orderEvent(afterSale.status, '模拟退款完成', note.trim()))
       persist()
       return clone(afterSale)
     },
     async listBookings(actor) {
       refresh()
-      authenticatedActor(actor)
-      const bookings = actor.role === 'ADMIN' || actor.role === 'MERCHANT' ? data.bookings : data.bookings.filter((booking) => booking.userId === actor.userId)
+      const user = authenticatedActor(actor)
+      if (user.role === 'MERCHANT') throw new RepositoryError('BOOKING_FORBIDDEN', '商家无权查看预约记录')
+      const bookings = user.role === 'ADMIN'
+        ? data.bookings
+        : data.bookings.filter((booking) => booking.userId === user.id)
       return clone(bookings)
     },
     async createBooking(actor, input: BookingInput) {
       refresh()
-      actorRole(actor, 'USER')
-      if (!input.date || !Number.isSafeInteger(input.people) || input.people <= 0 || !isValidPhone(input.phone)) throw new Error('预约信息无效')
-      const booking: Booking = { id: createBusinessId('BOOKING'), userId: actor.userId, ...clone(input), code: createBusinessId('BOOK'), status: 'PENDING', createdAt: now() }
+      const user = bookingUser(actor)
+      if (!isStrictCalendarDate(input.date) || input.date <= localDate(clock())) {
+        throw new RepositoryError('BOOKING_INVALID_DATE', '请选择未来日期')
+      }
+      if (!Number.isSafeInteger(input.people) || input.people < 1 || input.people > 12) {
+        throw new RepositoryError('BOOKING_INVALID_PEOPLE', '预约人数应为1至12人')
+      }
+      const phone = input.phone.trim()
+      if (!isValidPhone(phone)) throw new RepositoryError('BOOKING_INVALID_PHONE', '请输入11位中国大陆手机号')
+      let posterId: string | undefined
+      if (input.posterId !== undefined) {
+        const posterKey = normalizePosterKey(input.posterId.trim())
+        const poster = (readJourneyPosterStorage(storage).postersByUser[user.id] ?? [])
+          .find(({ id }) => normalizePosterKey(id) === posterKey)
+        if (poster === undefined) throw new RepositoryError('BOOKING_POSTER_INVALID', '配方海报不存在或不属于当前用户')
+        posterId = poster.id
+      }
+      const booking: Booking = {
+        id: createBusinessId('BOOKING'),
+        userId: user.id,
+        date: input.date,
+        people: input.people,
+        phone,
+        ...(posterId === undefined ? {} : { posterId }),
+        code: createBusinessId('BOOK').toUpperCase(),
+        status: 'PENDING',
+        timeline: [orderEvent('PENDING', '预约已提交')],
+        createdAt: now(),
+      }
       data.bookings.push(booking)
       persist()
       return clone(booking)
     },
     async cancelBooking(actor, bookingId) {
       refresh()
-      const booking = data.bookings.find((candidate) => candidate.id === bookingId)
-      actorRole(actor, 'USER')
-      if (booking === undefined || booking.userId !== actor.userId) throw new Error('无权取消该预约')
+      const user = bookingUser(actor)
+      const booking = bookingById(bookingId)
+      if (booking.userId !== user.id) throw new RepositoryError('BOOKING_FORBIDDEN', '无权取消该预约')
+      if (booking.status === 'CANCELLED') return clone(booking)
+      if (booking.status !== 'PENDING') throw new RepositoryError('BOOKING_CANCEL_INVALID_STATUS', '当前预约状态不能取消')
       booking.status = transitionBooking(booking.status, 'CANCEL')
+      booking.timeline.push(orderEvent(booking.status, '预约已取消'))
       persist()
       return clone(booking)
     },
     async verifyBooking(actor, code) {
       refresh()
-      merchantId(actor)
-      const booking = data.bookings.find((candidate) => candidate.code === code)
-      if (booking === undefined) throw new Error('预约核销码不存在')
+      const admin = bookingAdmin(actor)
+      const normalizedCode = normalizePosterKey(code.trim())
+      const booking = data.bookings.find((candidate) => normalizePosterKey(candidate.code) === normalizedCode)
+      if (booking === undefined) throw new RepositoryError('BOOKING_CODE_INVALID', '预约核销码不存在')
+      if (booking.status === 'VERIFIED') throw new RepositoryError('BOOKING_CODE_USED', '预约核销码已使用')
+      if (booking.status === 'CANCELLED') throw new RepositoryError('BOOKING_CANCELLED', '预约已取消')
       booking.status = transitionBooking(booking.status, 'VERIFY')
+      booking.verifiedAt = now()
+      booking.verifiedBy = admin.id
+      booking.timeline.push(orderEvent(booking.status, '预约已核销'))
       persist()
       return clone(booking)
     },

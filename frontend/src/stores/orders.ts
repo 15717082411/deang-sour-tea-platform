@@ -34,6 +34,7 @@ export const useOrdersStore = defineStore('orders', {
     actorEpoch: 0,
     checkoutSequence: 0,
     paymentSequence: 0,
+    mutationSequence: 0,
     orderLoadSequence: 0,
     orderListSequence: 0,
   }),
@@ -47,6 +48,7 @@ export const useOrdersStore = defineStore('orders', {
       this.actorEpoch += 1
       this.checkoutSequence += 1
       this.paymentSequence += 1
+      this.mutationSequence += 1
       this.orderLoadSequence += 1
       this.orderListSequence += 1
       checkoutFlights.delete(this)
@@ -170,6 +172,27 @@ export const useOrdersStore = defineStore('orders', {
         throw error
       } finally {
         if (ownsPaymentState()) this.paymentPending = false
+      }
+    },
+    async receive(orderId: string): Promise<Order> {
+      const auth = useAuthStore()
+      if (auth.actor === null || auth.user?.role !== 'USER') throw new Error('无权确认收货')
+      const actor = auth.actor
+      const actorEpoch = this.actorEpoch
+      const requestSequence = ++this.mutationSequence
+      const ownsState = () => this.actorEpoch === actorEpoch
+        && this.mutationSequence === requestSequence
+        && auth.actor?.userId === actor.userId
+        && auth.actor.role === actor.role
+      this.error = null
+      try {
+        const order = await useAppStore().repository.receiveOrder(actor, orderId)
+        if (!ownsState()) throw new Error('登录账号已切换，请重新加载订单')
+        this.remember(order)
+        return order
+      } catch (error) {
+        if (ownsState()) this.error = error instanceof Error ? error.message : '确认收货失败'
+        throw error
       }
     },
   },

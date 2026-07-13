@@ -6,6 +6,7 @@ import './styles/tokens.css'
 import './styles/base.css'
 import './styles/public.css'
 import './styles/commerce.css'
+import './styles/account.css'
 import App from './App.vue'
 import { createAppRouter } from './router'
 

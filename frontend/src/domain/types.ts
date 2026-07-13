@@ -8,7 +8,6 @@ export type OrderStatus =
   | 'RECEIVED'
   | 'COMPLETED'
   | 'CANCELLED'
-  | 'AFTER_SALE_REQUESTED'
 export type AfterSaleStatus = 'REQUESTED' | 'PROCESSING' | 'APPROVED' | 'REJECTED' | 'REFUNDED' | 'CLOSED'
 export type BookingStatus = 'PENDING' | 'VERIFIED' | 'CANCELLED'
 
@@ -120,7 +119,10 @@ export interface Booking {
   posterId?: string
   code: string
   status: BookingStatus
+  timeline: TimelineEvent[]
   createdAt: string
+  verifiedAt?: string
+  verifiedBy?: string
 }
 
 export interface JourneyChoice {

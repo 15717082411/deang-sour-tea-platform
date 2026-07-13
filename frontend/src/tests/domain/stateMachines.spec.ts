@@ -20,10 +20,10 @@ describe('domain state machines', () => {
     expect(transitionOrder('PENDING_PAYMENT', 'CANCEL')).toBe('CANCELLED')
   })
 
-  it('allows after-sale requests from paid, shipped, and received orders', () => {
-    expect(transitionOrder('PAID', 'REQUEST_AFTER_SALE')).toBe('AFTER_SALE_REQUESTED')
-    expect(transitionOrder('SHIPPED', 'REQUEST_AFTER_SALE')).toBe('AFTER_SALE_REQUESTED')
-    expect(transitionOrder('RECEIVED', 'REQUEST_AFTER_SALE')).toBe('AFTER_SALE_REQUESTED')
+  it('keeps after-sale lifecycle outside the fulfillment state machine', () => {
+    expect(() => transitionOrder('PAID', 'REQUEST_AFTER_SALE')).toThrow(DomainTransitionError)
+    expect(() => transitionOrder('SHIPPED', 'REQUEST_AFTER_SALE')).toThrow(DomainTransitionError)
+    expect(() => transitionOrder('RECEIVED', 'REQUEST_AFTER_SALE')).toThrow(DomainTransitionError)
   })
 
   it('rejects invalid order transitions with the domain error', () => {

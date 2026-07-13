@@ -1,7 +1,7 @@
-import type { Actor, ContentArticle, MerchantApplicationInput, OrderContact } from '../../domain/types'
+import type { Actor, Booking, ContentArticle, MerchantApplicationInput, OrderContact } from '../../domain/types'
 import type { PlatformRepository } from '../../data/repository'
 import { createDemoRepository } from '../../data/demoRepository'
-import { createSeedData, DEMO_STORAGE_KEY, type DemoData } from '../../data/seed'
+import { createSeedData, DEMO_DATA_VERSION, DEMO_STORAGE_KEY, type DemoData } from '../../data/seed'
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>()
@@ -86,7 +86,7 @@ async function createApprovedSecondMerchantProduct(repo: PlatformRepository) {
 }
 
 describe('demo repository', () => {
-  it('migrates the real v3 key to v4 without losing user business data', async () => {
+  it('migrates the real v3 key to v5 without losing user business data', async () => {
     const storage = new MemoryStorage()
     const legacy = createV3Data()
     const customUser = {
@@ -180,7 +180,7 @@ describe('demo repository', () => {
     legacy.orders[1].lines[0].image = '/images/product-gift.jpg'
     legacy.orders.push(customOrder)
     legacy.afterSales.push(customAfterSale)
-    legacy.bookings.push(customBooking)
+    legacy.bookings.push(customBooking as unknown as Booking)
     legacy.merchantApplications.push(customApplication)
     const serializedV3 = JSON.stringify({ version: 3, data: legacy })
     storage.setItem('deang-sour-tea:v3', serializedV3)
@@ -191,7 +191,10 @@ describe('demo repository', () => {
     await expect(repo.validateSession(customUser.id, 'SESSION-custom')).resolves.toMatchObject({ user: customUser })
     await expect(repo.getCart(actorFor(customUser))).resolves.toEqual(legacy.carts[customUser.id])
     await expect(repo.listOrders(actorFor(customUser))).resolves.toContainEqual(customOrder)
-    await expect(repo.listBookings(actorFor(customUser))).resolves.toContainEqual(customBooking)
+    await expect(repo.listBookings(actorFor(customUser))).resolves.toContainEqual(expect.objectContaining({
+      ...customBooking,
+      timeline: expect.any(Array),
+    }))
     await expect(repo.getProduct(customProduct.id)).resolves.toMatchObject({
       ...customProduct,
       merchantName: '酸茶工坊',
@@ -201,7 +204,7 @@ describe('demo repository', () => {
     expect((await repo.getContent('fermentation-craft')).title).not.toContain('45天')
     expect(await repo.getProduct('product-tasting')).toMatchObject({ image: '/images/product-tasting.webp', stock: 11, status: 'OFF_SHELF' })
     expect(await repo.getProduct('product-gift')).toMatchObject({ image: '/images/product-gift.webp', stock: 13 })
-    expect(migrated).toMatchObject({ version: 4 })
+    expect(migrated).toMatchObject({ version: 5 })
     expect(migrated.data.users).toEqual(legacy.users)
     expect(migrated.data.passwords).toEqual(legacy.passwords)
     expect(migrated.data.sessions).toEqual(legacy.sessions)
@@ -253,7 +256,7 @@ describe('demo repository', () => {
       const orders = data.orders as Array<Record<string, unknown>>
       orders[0].lines = {}
     }],
-  ])('rejects invalid v3 data with %s and writes a fresh v4 seed', (_caseName, corrupt) => {
+  ])('rejects invalid v3 data with %s and writes a fresh v5 seed', (_caseName, corrupt) => {
     const storage = new MemoryStorage()
     const legacy = createV3Data() as unknown as Record<string, unknown>
     corrupt(legacy)
@@ -262,7 +265,7 @@ describe('demo repository', () => {
     expect(() => createDemoRepository(storage)).not.toThrow()
 
     expect(JSON.parse(storage.getItem(DEMO_STORAGE_KEY) ?? '{}')).toEqual({
-      version: 4,
+      version: DEMO_DATA_VERSION,
       data: createSeedData(),
     })
   })
@@ -288,7 +291,7 @@ describe('demo repository', () => {
     expect(craftEntries[0].title).toBe('用户保留的第一条工艺标题')
   })
 
-  it('adds a missing built-in culture article once and leaves an existing v4 migration unchanged', async () => {
+  it('adds a missing built-in culture article once and leaves an existing v5 migration unchanged', async () => {
     const storage = new MemoryStorage()
     const legacy = createV3Data()
     legacy.contents = legacy.contents.filter(({ id }) => id !== 'content-craft')
@@ -526,11 +529,11 @@ describe('demo repository', () => {
     const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
     const userActor = actorFor(user.user)
     await repo.saveCart(userActor, [{ productId: 'product-tasting', quantity: 1 }])
-    expect(JSON.parse(storage.getItem('deang-sour-tea:v4') ?? '{}').version).toBe(4)
+    expect(JSON.parse(storage.getItem(DEMO_STORAGE_KEY) ?? '{}').version).toBe(DEMO_DATA_VERSION)
 
     await repo.reset()
     expect(await repo.getCart(userActor)).toEqual([])
-    expect(JSON.parse(storage.getItem('deang-sour-tea:v4') ?? '{}').version).toBe(4)
+    expect(JSON.parse(storage.getItem(DEMO_STORAGE_KEY) ?? '{}').version).toBe(DEMO_DATA_VERSION)
   })
 
   it('seeds every later-task defense scenario with correct access and status', async () => {

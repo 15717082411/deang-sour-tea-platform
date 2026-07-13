@@ -22,9 +22,10 @@ export interface DemoData {
   merchantApplications: MerchantApplication[]
 }
 
-export const DEMO_STORAGE_KEY = 'deang-sour-tea:v4'
-export const DEMO_DATA_VERSION = 4
-export const LEGACY_DEMO_STORAGE_KEY = 'deang-sour-tea:v3'
+export const DEMO_STORAGE_KEY = 'deang-sour-tea:v5'
+export const DEMO_DATA_VERSION = 5
+export const LEGACY_DEMO_STORAGE_KEY = 'deang-sour-tea:v4'
+export const V3_DEMO_STORAGE_KEY = 'deang-sour-tea:v3'
 
 const seedTimestamp = '2026-07-13T00:00:00.000Z'
 
@@ -113,7 +114,7 @@ export function createSeedData(): DemoData {
       {
         id: 'order-after-sale', orderNo: 'DST-20260713-002', userId: 'user-demo', merchantId: 'merchant-demo-shop',
         lines: [{ productId: 'product-gift', productName: '德昂古树酸茶礼盒', image: '/images/product-gift.webp', quantity: 1, unitPriceCents: 16800 }],
-        totalCents: 16800, status: 'AFTER_SALE_REQUESTED', contact: { recipient: '体验用户', phone: '13800138000', address: '云南省德宏州芒市酸茶路 1 号' },
+        totalCents: 16800, status: 'PAID', contact: { recipient: '体验用户', phone: '13800138000', address: '云南省德宏州芒市酸茶路 1 号' },
         timeline: [
           { status: 'PENDING_PAYMENT', label: '订单已创建', at: seedTimestamp },
           { status: 'PAID', label: '支付成功', at: seedTimestamp },
@@ -122,7 +123,17 @@ export function createSeedData(): DemoData {
       },
     ],
     afterSales: [{ id: 'after-sale-requested', orderId: 'order-after-sale', userId: 'user-demo', merchantId: 'merchant-demo-shop', reason: '礼盒外包装破损', status: 'REQUESTED', timeline: [{ status: 'REQUESTED', label: '售后申请已提交', at: seedTimestamp }] }],
-    bookings: [{ id: 'booking-pending', userId: 'user-demo', date: '2026-08-01', people: 2, phone: '13800138000', code: 'BOOK-DEMO-01', status: 'PENDING', createdAt: seedTimestamp }],
+    bookings: [{
+      id: 'booking-pending',
+      userId: 'user-demo',
+      date: '2027-06-01',
+      people: 2,
+      phone: '13800138000',
+      code: 'BOOK-DEMO-01',
+      status: 'PENDING',
+      timeline: [{ status: 'PENDING', label: '预约已提交', at: seedTimestamp }],
+      createdAt: seedTimestamp,
+    }],
     merchantApplications: [{ id: 'merchant-application-pending', userId: 'user-demo', shopName: '山野酸茶小铺', contact: '13800138000', location: '云南省德宏州芒市', introduction: '专注德昂族酸茶文化体验。', status: 'PENDING', createdAt: seedTimestamp }],
   }
 }
@@ -238,6 +249,43 @@ export function migrateDemoDataV3(legacyData: DemoData): DemoData {
         : line
     }),
   }))
+
+  return migrated
+}
+
+const fulfillmentStatuses = new Set<Order['status']>([
+  'PENDING_PAYMENT',
+  'PAID',
+  'SHIPPED',
+  'RECEIVED',
+  'COMPLETED',
+  'CANCELLED',
+])
+
+export function migrateDemoDataV4(legacyData: DemoData): DemoData {
+  const migrated = JSON.parse(JSON.stringify(legacyData)) as DemoData
+
+  migrated.orders = migrated.orders.map((order) => {
+    if ((order.status as string) !== 'AFTER_SALE_REQUESTED') return order
+    const previous = [...order.timeline]
+      .reverse()
+      .map(({ status }) => status)
+      .find((status): status is Order['status'] => fulfillmentStatuses.has(status as Order['status']))
+    return { ...order, status: previous ?? 'PAID' }
+  })
+
+  migrated.bookings = migrated.bookings.map((booking) => {
+    if (Array.isArray(booking.timeline) && booking.timeline.length > 0) return booking
+    const label = booking.status === 'VERIFIED'
+      ? '预约已核销'
+      : booking.status === 'CANCELLED'
+        ? '预约已取消'
+        : '预约已提交'
+    return {
+      ...booking,
+      timeline: [{ status: booking.status, label, at: booking.createdAt }],
+    }
+  })
 
   return migrated
 }

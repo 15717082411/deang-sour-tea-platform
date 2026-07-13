@@ -22,7 +22,26 @@ import type {
 } from '../domain/types'
 
 export type CartRequestLine = Pick<CartLine, 'productId' | 'quantity'>
-export type RepositoryErrorCode = 'CONTENT_NOT_FOUND'
+export type RepositoryErrorCode =
+  | 'CONTENT_NOT_FOUND'
+  | 'ORDER_NOT_FOUND'
+  | 'ORDER_FORBIDDEN'
+  | 'ORDER_RECEIVE_INVALID_STATUS'
+  | 'AFTER_SALE_NOT_FOUND'
+  | 'AFTER_SALE_FORBIDDEN'
+  | 'AFTER_SALE_REASON_REQUIRED'
+  | 'AFTER_SALE_DUPLICATE'
+  | 'AFTER_SALE_INVALID_STATUS'
+  | 'BOOKING_NOT_FOUND'
+  | 'BOOKING_FORBIDDEN'
+  | 'BOOKING_INVALID_DATE'
+  | 'BOOKING_INVALID_PEOPLE'
+  | 'BOOKING_INVALID_PHONE'
+  | 'BOOKING_POSTER_INVALID'
+  | 'BOOKING_CODE_INVALID'
+  | 'BOOKING_CODE_USED'
+  | 'BOOKING_CANCELLED'
+  | 'BOOKING_CANCEL_INVALID_STATUS'
 
 export class RepositoryError extends Error {
   constructor(
@@ -60,6 +79,7 @@ export interface PlatformRepository {
   listAfterSales(actor: Actor): Promise<AfterSale[]>
   requestAfterSale(actor: Actor, orderId: string, reason: string): Promise<AfterSale>
   resolveAfterSale(actor: Actor, afterSaleId: string, decision: 'APPROVE' | 'REJECT', note: string): Promise<AfterSale>
+  refundAfterSale(actor: Actor, afterSaleId: string, note: string): Promise<AfterSale>
   listBookings(actor: Actor): Promise<Booking[]>
   createBooking(actor: Actor, input: BookingInput): Promise<Booking>
   cancelBooking(actor: Actor, bookingId: string): Promise<Booking>

@@ -1,6 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AppHeader from '../../components/common/AppHeader.vue'
 import { createDemoRepository } from '../../data/demoRepository'
 import LoginPage from '../../pages/auth/LoginPage.vue'
@@ -28,7 +28,8 @@ describe('authentication pages', () => {
     await wrapper.get('form').trigger('submit.prevent')
     await flushPromises()
 
-    expect(context.router.currentRoute.value.path).toBe('/account')
+    await vi.waitFor(() => expect(context.router.currentRoute.value.path).toBe('/account'))
+    expect(wrapper.get('button').text()).toBe('登录')
   })
 
   it('reports repository login failures without navigating', async () => {
