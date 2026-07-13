@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>德昂族酸茶数字化互动体验平台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Deang Sour Tea</p>
+        <h1>德昂族酸茶数字化互动体验平台</h1>
+      </div>
+      <nav class="top-nav">
+        <button data-view="home">首页</button>
+        <button data-view="culture">酸茶科普</button>
+        <button data-view="h5">H5互动</button>
+        <button data-view="shop">酸茶商城</button>
+        <button data-view="booking">预约体验</button>
+        <button data-view="workspace">工作台</button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">非遗科普 · 互动体验 · 电商转化</p>
+          <h2>从一杯酸茶，走进德昂族的古法制茶现场</h2>
+          <p>用 H5 轻互动理解杀青、揉捻、45天发酵，再购买酸茶礼盒或预约线下工坊体验。</p>
+        </div>
+        <div class="login-panel">
+          <label for="roleSelect">当前身份</label>
+          <select id="roleSelect">
+            <option value="USER">普通用户</option>
+            <option value="MERCHANT">商家</option>
+            <option value="ADMIN">管理员</option>
+          </select>
+          <p id="roleHint"></p>
+          <button id="resetDemo">重置演示数据</button>
+        </div>
+      </section>
+
+      <section id="view"></section>
+    </main>
+
+    <template id="homeTpl">
+      <div class="grid three">
+        <article class="card">
+          <h3>酸茶科普</h3>
+          <p>聚焦德昂族酸茶来源、制作技艺、口味特征与传承现状，不做泛茶文化百科。</p>
+        </article>
+        <article class="card">
+          <h3>H5互动</h3>
+          <p>通过源起之魂、自然之魂、技艺之魂和火塘终章生成专属酸茶配方。</p>
+        </article>
+        <article class="card">
+          <h3>电商闭环</h3>
+          <p>支持普通用户购买，商家管理商品与订单，管理员审核监管。</p>
+        </article>
+      </div>
+      <div class="metrics">
+        <div><strong id="metricProducts">0</strong><span>在售酸茶商品</span></div>
+        <div><strong id="metricOrders">0</strong><span>平台订单</span></div>
+        <div><strong id="metricBookings">0</strong><span>体验预约</span></div>
+        <div><strong id="metricCodes">0</strong><span>核销码</span></div>
+      </div>
+    </template>
+
+    <template id="cultureTpl">
+      <article class="content">
+        <h2>德昂族酸茶制作技艺</h2>
+        <p>德昂族酸茶以手工经验为核心，重点工序包括杀青、揉捻、装筒发酵和品饮回甘。本平台将这些工序拆解为可理解、可互动、可购买、可预约的数字流程。</p>
+        <ol class="steps">
+          <li><strong>杀青：</strong>控制火候，保留茶叶香气。</li>
+          <li><strong>揉捻：</strong>让茶叶紧结，为后续发酵形成基础。</li>
+          <li><strong>发酵：</strong>选择 45 天作为关键记忆点，建立酸茶独特风味认知。</li>
+          <li><strong>品饮：</strong>以微酸与回甘形成体验记忆。</li>
+        </ol>
+      </article>
+    </template>
+
+    <template id="h5Tpl">
+      <div class="h5-shell">
+        <div class="h5-card">
+          <p class="eyebrow">茶魂寻踪</p>
+          <h2 id="gameTitle">源起之魂</h2>
+          <p id="gameText"></p>
+          <div id="gameOptions" class="option-list"></div>
+          <button id="nextGame" class="primary">下一步</button>
+        </div>
+        <aside class="card">
+          <h3>专属酸茶配方</h3>
+          <p id="recipeResult">完成三步互动后生成。</p>
+          <button id="savePoster">生成海报与核销码</button>
+        </aside>
+      </div>
+    </template>
+
+    <template id="shopTpl">
+      <div class="toolbar">
+        <h2>酸茶商城</h2>
+        <button id="viewCart">购物车（<span id="cartCount">0</span>）</button>
+      </div>
+      <div id="productList" class="grid three"></div>
+    </template>
+
+    <template id="cartTpl">
+      <div class="toolbar">
+        <h2>购物车与订单</h2>
+        <button data-view="shop">返回商城</button>
+      </div>
+      <div id="cartList"></div>
+      <button id="checkout" class="primary">提交订单并模拟支付</button>
+    </template>
+
+    <template id="bookingTpl">
+      <div class="split">
+        <form id="bookingForm" class="card form">
+          <h2>预约酸茶工坊</h2>
+          <label>预约日期 <input name="date" type="date" required /></label>
+          <label>参与人数 <input name="people" type="number" min="1" max="12" value="2" required /></label>
+          <label>联系电话 <input name="phone" placeholder="请输入手机号" required /></label>
+          <button class="primary">提交预约</button>
+        </form>
+        <div class="card">
+          <h3>我的预约</h3>
+          <div id="bookingList"></div>
+        </div>
+      </div>
+    </template>
+
+    <template id="workspaceTpl">
+      <div id="workspaceContent"></div>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

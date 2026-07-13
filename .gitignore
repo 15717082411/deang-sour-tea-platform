@@ -1,0 +1,27 @@
+# Local tooling and caches
+.DS_Store
+.idea/
+*.iml
+.m2/
+.superpowers/
+__pycache__/
+*.py[cod]
+
+# Build and dependency output
+backend/target/
+node_modules/
+dist/
+coverage/
+*.log
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+backend/src/main/resources/application-local.yml
+backend/src/main/resources/application-*-local.yml
+
+# Unrelated legacy prototype kept locally
+/build_prd_docx.py
+/prd_ql/
+/中国古代智慧数字化互动学习平台_PRD.docx
