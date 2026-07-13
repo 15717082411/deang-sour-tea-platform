@@ -27,7 +27,7 @@ const publicRoutes: RouteRecordRaw[] = [
   { path: 'culture/:slug', name: 'culture-detail', component: () => import('../pages/public/CultureDetailPage.vue') },
   { path: 'craft', name: 'craft', component: () => import('../pages/public/CraftPage.vue') },
   { path: 'stories', name: 'stories', component: () => import('../pages/public/StoriesPage.vue') },
-  { path: 'journey', name: 'journey', component: PendingPage },
+  { path: 'journey', name: 'journey', component: () => import('../pages/journey/JourneyPage.vue') },
   { path: 'shop', name: 'shop', component: PendingPage },
   { path: 'shop/:id', name: 'product-detail', component: PendingPage },
   { path: 'cart', name: 'cart', component: PendingPage },
