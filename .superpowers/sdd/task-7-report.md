@@ -101,3 +101,5 @@
 - `recoveryPages.spec.ts` 既有“同账号 `loadOrder` 乱序只提交最新请求”用例继续保留，与新增用例共同覆盖评审范围。
 - 专项：`npm test -- src/tests/shop/actorIsolation.spec.ts src/tests/shop/recoveryPages.spec.ts`，`2 files / 16 tests passed`。
 - 全量：`npm test`，`21 files / 179 tests passed`；`npm run lint`、`npm run typecheck`、`npm run build` 均通过，构建仅有既有 chunk 体积警告。
+- 定点 re-review 进一步要求覆盖“新 flight 已完成、旧 flight 才失败”的反向时序；新增 checkout/payment 各 1 项，确认 `currentOrder`、pending 与 error 保持新 flight 结果。`actorIsolation.spec.ts` 最终为 `11/11 passed`。
+- 最终全量：`npm test`，`21 files / 181 tests passed`；`npm run lint`、`npm run typecheck`、`npm run build` 再次通过。

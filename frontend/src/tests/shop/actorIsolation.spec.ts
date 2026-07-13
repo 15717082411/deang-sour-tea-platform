@@ -156,6 +156,44 @@ describe('commerce actor isolation', () => {
     expect(context.orders.currentOrder?.id).toBe(newOrder.id)
   })
 
+  it('keeps a completed same-account checkout result when the older flight rejects later', async () => {
+    const data = seedWithSecondUser()
+    data.carts['user-demo'] = [
+      { productId: 'product-tasting', quantity: 1, unitPriceCents: 5900 },
+      { productId: 'product-other-merchant', quantity: 1, unitPriceCents: 7200 },
+    ]
+    const context = createCommerceContext(data)
+    await context.auth.login({ username: 'user_demo', password: 'Demo123!' })
+    await context.catalog.load()
+    await context.cart.load()
+
+    const originalCreateOrder = context.repository.createOrder.bind(context.repository)
+    const oldGate = deferred<void>()
+    const newGate = deferred<void>()
+    const createOrder = vi.spyOn(context.repository, 'createOrder').mockImplementation(async (actor, lines, orderContact, key) => {
+      const gate = lines.some(({ productId }) => productId === 'product-tasting') ? oldGate : newGate
+      await gate.promise
+      return originalCreateOrder(actor, lines, orderContact, key)
+    })
+
+    const oldCheckout = context.orders.checkout('merchant-demo-shop', contact)
+    const oldResult = oldCheckout.catch((error: unknown) => error)
+    await vi.waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1))
+    const newCheckout = context.orders.checkout('merchant-other-shop', contact)
+    await vi.waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2))
+
+    newGate.resolve(undefined)
+    const newOrder = await newCheckout
+    expect(context.orders.currentOrder?.id).toBe(newOrder.id)
+    expect(context.orders.checkoutPending).toBe(false)
+
+    oldGate.reject(new Error('较早结算晚到失败'))
+    expect(await oldResult).toBeInstanceOf(Error)
+    expect(context.orders.currentOrder?.id).toBe(newOrder.id)
+    expect(context.orders.checkoutPending).toBe(false)
+    expect(context.orders.error).toBeNull()
+  })
+
   it('keeps the new account payment flight isolated from an old payment rejection', async () => {
     const context = createCommerceContext(seedWithSecondUser())
     const oldActor: Actor = { userId: 'user-demo', role: 'USER' }
@@ -239,6 +277,49 @@ describe('commerce actor isolation', () => {
     const paid = await newPayment
     expect(context.orders.paymentPending).toBe(false)
     expect(context.orders.currentOrder?.id).toBe(paid.id)
+  })
+
+  it('keeps a completed same-account payment result when the older flight rejects later', async () => {
+    const context = createCommerceContext(seedWithSecondUser())
+    const actor: Actor = { userId: 'user-demo', role: 'USER' }
+    const oldOrder = await context.repository.createOrder(
+      actor,
+      [{ productId: 'product-tasting', quantity: 1 }],
+      contact,
+      'checkout-payment-late-old',
+    )
+    const newOrder = await context.repository.createOrder(
+      actor,
+      [{ productId: 'product-other-merchant', quantity: 1 }],
+      contact,
+      'checkout-payment-early-new',
+    )
+    await context.auth.login({ username: 'user_demo', password: 'Demo123!' })
+
+    const originalPayOrder = context.repository.payOrder.bind(context.repository)
+    const oldGate = deferred<void>()
+    const newGate = deferred<void>()
+    const payOrder = vi.spyOn(context.repository, 'payOrder').mockImplementation(async (requestActor, orderId, result) => {
+      await (orderId === oldOrder.id ? oldGate.promise : newGate.promise)
+      return originalPayOrder(requestActor, orderId, result)
+    })
+
+    const oldPayment = context.orders.pay(oldOrder.id, 'SUCCESS')
+    const oldResult = oldPayment.catch((error: unknown) => error)
+    await vi.waitFor(() => expect(payOrder).toHaveBeenCalledTimes(1))
+    const newPayment = context.orders.pay(newOrder.id, 'SUCCESS')
+    await vi.waitFor(() => expect(payOrder).toHaveBeenCalledTimes(2))
+
+    newGate.resolve(undefined)
+    const paid = await newPayment
+    expect(context.orders.currentOrder?.id).toBe(paid.id)
+    expect(context.orders.paymentPending).toBe(false)
+
+    oldGate.reject(new Error('较早支付晚到失败'))
+    expect(await oldResult).toBeInstanceOf(Error)
+    expect(context.orders.currentOrder?.id).toBe(paid.id)
+    expect(context.orders.paymentPending).toBe(false)
+    expect(context.orders.error).toBeNull()
   })
 
   it('does not commit an old account order list after the actor changes', async () => {
