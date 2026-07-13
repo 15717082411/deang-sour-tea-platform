@@ -1,4 +1,5 @@
 import type { OrderContact } from '../../domain/types'
+import type { PlatformRepository } from '../../data/repository'
 import { createDemoRepository } from '../../data/demoRepository'
 
 class MemoryStorage implements Storage {
@@ -19,6 +20,24 @@ const contact: OrderContact = {
   recipient: '测试用户',
   phone: '13800138000',
   address: '云南省德宏州芒市测试路 1 号',
+}
+
+async function createApprovedSecondMerchantProduct(repo: PlatformRepository) {
+  const applicant = await repo.register({ username: 'other-merchant', password: 'Demo123!', phone: '13800138003' })
+  const application = await repo.applyMerchant(applicant.user.id, {
+    shopName: '另一家酸茶工坊', contact: '13800138003', location: '云南省德宏州', introduction: '用于商家归属测试。',
+  })
+  const admin = await repo.login({ username: 'admin_demo', password: 'Demo123!' })
+  const adminActor = { userId: admin.user.id, role: admin.user.role } as const
+  await repo.reviewMerchant(adminActor, application.id, { result: 'APPROVE', reason: '资料完整' })
+
+  const merchant = await repo.login({ username: 'other-merchant', password: 'Demo123!' })
+  const merchantActor = { userId: merchant.user.id, role: merchant.user.role, merchantId: merchant.user.merchantId } as const
+  const product = await repo.saveProduct(merchantActor, {
+    name: '另一家工坊体验装', category: '体验装', priceCents: 6900, stock: 10, description: '用于订单归属测试。', image: 'other.jpg',
+  })
+  await repo.submitProduct(merchantActor, product.id)
+  return { adminActor, merchant, product: await repo.reviewProduct(adminActor, product.id, { result: 'APPROVE', reason: '符合要求' }) }
 }
 
 describe('demo repository', () => {
@@ -62,17 +81,55 @@ describe('demo repository', () => {
     expect(afterRepeatedPayment.stock).toBe(afterFirstPayment.stock)
   })
 
-  it('enforces merchant ownership and role restrictions', async () => {
+  it('enforces product permissions for persisted roles', async () => {
     const repo = createDemoRepository(new MemoryStorage())
     const merchant = await repo.login({ username: 'merchant_demo', password: 'Demo123!' })
     const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
-    const order = (await repo.listOrders({ userId: user.user.id, role: 'USER' }))[0]
 
     await expect(repo.saveProduct({ userId: user.user.id, role: 'USER' }, {
       name: '越权商品', category: '体验装', priceCents: 5900, stock: 1, description: 'x', image: 'x',
     })).rejects.toThrow()
-    await expect(repo.shipOrder({ userId: merchant.user.id, role: 'MERCHANT', merchantId: merchant.user.merchantId }, order.id)).rejects.toThrow()
     await expect(repo.reviewProduct({ userId: merchant.user.id, role: 'MERCHANT', merchantId: merchant.user.merchantId }, 'product-pending', { result: 'APPROVE' })).rejects.toThrow()
+  })
+
+  it('derives merchant order access from the persisted merchant identity', async () => {
+    const repo = createDemoRepository(new MemoryStorage())
+    const { merchant: otherMerchant, product } = await createApprovedSecondMerchantProduct(repo)
+    const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
+    const originalMerchant = await repo.login({ username: 'merchant_demo', password: 'Demo123!' })
+    const order = await repo.createOrder(user.user.id, [{ productId: product.id, quantity: 1 }], contact)
+
+    expect((await repo.payOrder(order.id, 'SUCCESS')).status).toBe('PAID')
+    await expect(repo.getOrder({
+      userId: originalMerchant.user.id,
+      role: 'MERCHANT',
+      merchantId: otherMerchant.user.merchantId,
+    }, order.id)).rejects.toThrow()
+  })
+
+  it('rejects forged roles before they can receive orders', async () => {
+    const repo = createDemoRepository(new MemoryStorage())
+    const merchant = await repo.login({ username: 'merchant_demo', password: 'Demo123!' })
+    const merchantActor = { userId: merchant.user.id, role: merchant.user.role, merchantId: merchant.user.merchantId } as const
+    const forgedUserActor = { userId: merchant.user.id, role: 'USER' } as const
+    const shippedOrder = await repo.createOrder(merchant.user.id, [{ productId: 'product-tasting', quantity: 1 }], contact)
+
+    await repo.payOrder(shippedOrder.id, 'SUCCESS')
+    expect((await repo.shipOrder(merchantActor, shippedOrder.id)).status).toBe('SHIPPED')
+    await expect(repo.receiveOrder(forgedUserActor, shippedOrder.id)).rejects.toThrow('角色身份无效')
+    expect((await repo.getOrder(merchantActor, shippedOrder.id)).status).toBe('SHIPPED')
+  })
+
+  it('rejects forged roles before they can request after-sales', async () => {
+    const repo = createDemoRepository(new MemoryStorage())
+    const merchant = await repo.login({ username: 'merchant_demo', password: 'Demo123!' })
+    const merchantActor = { userId: merchant.user.id, role: merchant.user.role, merchantId: merchant.user.merchantId } as const
+    const forgedUserActor = { userId: merchant.user.id, role: 'USER' } as const
+    const paidOrder = await repo.createOrder(merchant.user.id, [{ productId: 'product-gift', quantity: 1 }], contact)
+
+    expect((await repo.payOrder(paidOrder.id, 'SUCCESS')).status).toBe('PAID')
+    await expect(repo.requestAfterSale(forgedUserActor, paidOrder.id, '伪造角色申请')).rejects.toThrow('角色身份无效')
+    expect((await repo.getOrder(merchantActor, paidOrder.id)).status).toBe('PAID')
   })
 
   it('persists versioned data, returns clones, and reset restores the deterministic seed', async () => {

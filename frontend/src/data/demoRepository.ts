@@ -86,10 +86,10 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     return user.merchantId
   }
   const ownsOrder = (actor: Actor, order: Order): void => {
-    authenticatedActor(actor)
-    if (actor.role === 'ADMIN') return
-    if (actor.role === 'USER' && order.userId === actor.userId) return
-    if (actor.role === 'MERCHANT' && actor.merchantId === order.merchantId) return
+    const user = authenticatedActor(actor)
+    if (user.role === 'ADMIN') return
+    if (user.role === 'USER' && order.userId === user.id) return
+    if (user.role === 'MERCHANT' && merchantId(actor) === order.merchantId) return
     throw new Error('无权访问该订单')
   }
   const createSession = (user: User): AuthSession => ({ sessionId: createBusinessId('SESSION'), user: clone(user) })
@@ -189,7 +189,8 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     },
     async receiveOrder(actor, orderId) {
       const order = orderById(orderId)
-      if (actor.role !== 'USER' || actor.userId !== order.userId) throw new Error('无权操作该订单')
+      const user = actorRole(actor, 'USER')
+      if (user.id !== order.userId) throw new Error('无权操作该订单')
       order.status = transitionOrder(order.status, 'RECEIVE')
       order.timeline.push(orderEvent(order.status, '用户已收货'))
       persist()
@@ -202,7 +203,8 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     },
     async requestAfterSale(actor, orderId, reason) {
       const order = orderById(orderId)
-      if (actor.role !== 'USER' || actor.userId !== order.userId || !reason.trim()) throw new Error('无权申请售后')
+      const user = actorRole(actor, 'USER')
+      if (user.id !== order.userId || !reason.trim()) throw new Error('无权申请售后')
       if (data.afterSales.some((afterSale) => afterSale.orderId === orderId)) throw new Error('订单已有售后申请')
       order.status = transitionOrder(order.status, 'REQUEST_AFTER_SALE')
       order.timeline.push(orderEvent(order.status, '已申请售后', reason))
