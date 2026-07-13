@@ -93,3 +93,11 @@
 - 商城专项：`npm test -- src/tests/shop`，`8 files / 38 tests passed`。
 - 全量测试：`npm test`，`21 files / 174 tests passed`。
 - `npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check` 均通过；构建仅保留上文记录的既有 chunk 体积警告。
+
+## 独立复核测试补强
+
+- 复核确认生产修复没有新的 Critical/Important 代码缺陷，但要求为首次异步边界后的 owner 复核、同账号多 flight 和订单查询乱序补齐直接证据。
+- `actorIsolation.spec.ts` 从 4 项扩展为 9 项：新增 cart post-await owner guard、同账号 checkout/payment 旧 flight cleanup、同账号 `loadOrders` 乱序、跨账号 `loadOrder` 响应测试。
+- `recoveryPages.spec.ts` 既有“同账号 `loadOrder` 乱序只提交最新请求”用例继续保留，与新增用例共同覆盖评审范围。
+- 专项：`npm test -- src/tests/shop/actorIsolation.spec.ts src/tests/shop/recoveryPages.spec.ts`，`2 files / 16 tests passed`。
+- 全量：`npm test`，`21 files / 179 tests passed`；`npm run lint`、`npm run typecheck`、`npm run build` 均通过，构建仅有既有 chunk 体积警告。
