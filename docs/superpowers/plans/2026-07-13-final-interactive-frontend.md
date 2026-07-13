@@ -244,7 +244,7 @@ export interface PlatformRepository {
   cancelBooking(actor: Actor, bookingId: string): Promise<Booking>
   verifyBooking(actor: Actor, code: string): Promise<Booking>
   getMerchantApplication(userId: string): Promise<MerchantApplication | null>
-  applyMerchant(userId: string, input: MerchantApplicationInput): Promise<MerchantApplication>
+  applyMerchant(actor: Actor, input: MerchantApplicationInput): Promise<MerchantApplication>
   listMerchantApplications(actor: Actor): Promise<MerchantApplication[]>
   reviewMerchant(actor: Actor, applicationId: string, decision: ReviewDecision): Promise<MerchantApplication>
   saveProduct(actor: Actor, input: ProductDraftInput): Promise<Product>

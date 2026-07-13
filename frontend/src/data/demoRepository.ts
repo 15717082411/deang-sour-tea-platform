@@ -254,12 +254,13 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       persist()
       return clone(booking)
     },
-    async getMerchantApplication(userId) { return clone(data.merchantApplications.find((application) => application.userId === userId) ?? null) },
-    async applyMerchant(userId, input: MerchantApplicationInput) {
-      const user = userById(userId)
-      if (data.merchantApplications.some((application) => application.userId === userId && application.status === 'PENDING')) throw new Error('已有待审核申请')
+    async getMerchantApplication(userId) { return clone([...data.merchantApplications].reverse().find((application) => application.userId === userId) ?? null) },
+    async applyMerchant(actor, input: MerchantApplicationInput) {
+      const user = actorRole(actor, 'USER')
+      if (user.merchantStatus === 'PENDING' || data.merchantApplications.some((application) => application.userId === user.id && application.status === 'PENDING')) throw new Error('已有待审核申请')
+      if (user.merchantStatus === 'APPROVED') throw new Error('已是商家')
       if (!input.shopName.trim() || !input.contact.trim() || !input.location.trim() || !input.introduction.trim()) throw new Error('申请信息无效')
-      const application: MerchantApplication = { id: createBusinessId('MERCHANT_APPLICATION'), userId, ...clone(input), status: 'PENDING', createdAt: now() }
+      const application: MerchantApplication = { id: createBusinessId('MERCHANT_APPLICATION'), userId: user.id, ...clone(input), status: 'PENDING', createdAt: now() }
       user.merchantStatus = 'PENDING'
       data.merchantApplications.push(application)
       persist()

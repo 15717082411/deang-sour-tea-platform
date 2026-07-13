@@ -48,3 +48,34 @@
 - `receiveOrder` and `requestAfterSale` now route through `actorRole(actor, 'USER')`, which validates the persisted user and role before any order mutation.
 - The cross-merchant case creates and pays an order for a separately approved merchant, so rejection is independent of an invalid order status.
 - The accepted price-free `OrderRequestLine` and repository-side catalog pricing behavior were not changed.
+
+## Contract Correction: Merchant Application Option A (2026-07-13)
+
+### RED
+
+- Command: `npm test -- src/tests/data/demoRepository.spec.ts`
+- Old-code result: `1` test file failed; `5` tests failed and `11` passed out of `16`.
+- Relevant failure: every actor-based merchant application test failed with `用户不存在`, because the old implementation treated the persisted `Actor` object as the former caller-supplied `userId` string.
+
+### GREEN
+
+- Command: `npm test -- src/tests/data/demoRepository.spec.ts`
+- Result: `1` test file passed; `16` tests passed out of `16`.
+- Command: `npm run typecheck`
+- Result: passed with exit code `0` (`vue-tsc -b --force`).
+
+### Files Changed
+
+- `frontend/src/data/repository.ts`
+- `frontend/src/data/demoRepository.ts`
+- `frontend/src/tests/data/demoRepository.spec.ts`
+- `docs/superpowers/plans/2026-07-13-final-interactive-frontend.md`
+- `.superpowers/sdd/task-3-report.md`
+
+### Self-Review
+
+- `PlatformRepository.applyMerchant` now accepts exactly `actor: Actor` and `input`; its type assertion prevents a later caller from reintroducing a target-user parameter.
+- The implementation validates the persisted actor with `actorRole(actor, 'USER')` and writes `application.userId` from that persisted user only. A pending user and a merchant cannot create another application; a rejected `USER` can submit corrected details as a new pending application.
+- `getMerchantApplication` returns the latest application so a corrected resubmission is observable after a rejection.
+- The suite retains the existing negative authorization cases and adds positive persisted-merchant own-order and legitimate-user own-after-sale cases.
+- `OrderRequestLine` remains price-free and `createOrder` continues to obtain unit prices from the approved catalog.
