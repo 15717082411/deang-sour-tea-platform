@@ -218,6 +218,7 @@ export interface ContentInput {
   category: string
   summary: string
   body: string
+  cover: string
   sources: ContentSource[]
   published: boolean
 }

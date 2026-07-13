@@ -4,6 +4,7 @@ import type { Actor, AuthSession, LoginInput, RegisterInput, User } from '../dom
 import { clearGuestCart, readGuestCart } from '../utils/guestCart'
 import { useAppStore } from './app'
 import { useAfterSalesStore } from './afterSales'
+import { useAdminStore } from './admin'
 import { useBookingsStore } from './bookings'
 import { useMerchantStore } from './merchant'
 import { useOrdersStore } from './orders'
@@ -58,6 +59,7 @@ export const useAuthStore = defineStore('auth', {
         useOrdersStore().resetForActorChange()
         useBookingsStore().resetForActorChange()
         useAfterSalesStore().resetForActorChange()
+        useAdminStore().resetForActorChange()
         useMerchantStore().resetForActorChange()
       }
       this.user = session.user
@@ -119,6 +121,7 @@ export const useAuthStore = defineStore('auth', {
         useOrdersStore().resetForActorChange()
         useBookingsStore().resetForActorChange()
         useAfterSalesStore().resetForActorChange()
+        useAdminStore().resetForActorChange()
         useMerchantStore().resetForActorChange()
         this.user = null
         this.sessionId = null

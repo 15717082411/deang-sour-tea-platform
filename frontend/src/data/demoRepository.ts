@@ -216,6 +216,14 @@ export function createDemoRepository(storage: Storage, clock: DemoClock = () => 
     const parsed = new Date(year, month - 1, day)
     return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day
   }
+  const isValidSourceUrl = (value: string): boolean => {
+    try {
+      const parsed = new URL(value)
+      return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+    } catch {
+      return false
+    }
+  }
 
   return {
     async login(input: LoginInput) {
@@ -522,13 +530,17 @@ export function createDemoRepository(storage: Storage, clock: DemoClock = () => 
       return data.products.filter((product) => product.merchantId === owner).map(productForRead)
     },
     async listMerchantApplications(actor) { refresh(); actorRole(actor, 'ADMIN'); return clone(data.merchantApplications) },
+    async listAdminProducts(actor) { refresh(); actorRole(actor, 'ADMIN'); return data.products.map(productForRead) },
+    async listAdminContents(actor) { refresh(); actorRole(actor, 'ADMIN'); return clone(data.contents) },
     async reviewMerchant(actor, applicationId, decision) {
       refresh()
       actorRole(actor, 'ADMIN')
       const application = data.merchantApplications.find((candidate) => candidate.id === applicationId)
       if (application === undefined || application.status !== 'PENDING') throw new Error('商家申请不可审核')
+      const reason = decision.reason?.trim()
+      if (decision.result === 'REJECT' && !reason) throw new Error('请填写驳回理由')
       application.status = decision.result === 'APPROVE' ? 'APPROVED' : 'REJECTED'
-      application.reviewReason = decision.reason
+      application.reviewReason = reason
       const user = userById(application.userId)
       user.merchantStatus = application.status
       if (decision.result === 'APPROVE') { user.role = 'MERCHANT'; user.merchantId = createBusinessId('MERCHANT') }
@@ -576,19 +588,40 @@ export function createDemoRepository(storage: Storage, clock: DemoClock = () => 
       refresh()
       actorRole(actor, 'ADMIN')
       const product = productById(productId)
+      const reason = decision.reason?.trim()
+      if (decision.result === 'REJECT' && !reason) throw new Error('请填写驳回理由')
       product.status = transitionProduct(product.status, decision.result)
-      product.reviewReason = decision.reason
+      product.reviewReason = reason
       persist()
       return clone(product)
     },
     async saveContent(actor, input: ContentInput) {
       refresh()
       actorRole(actor, 'ADMIN')
-      if (!input.title.trim() || !input.slug.trim() || data.contents.some((content) => content.slug === input.slug && content.id !== input.id)) throw new Error('内容信息无效')
+      const normalized = {
+        title: input.title.trim(),
+        slug: input.slug.trim(),
+        category: input.category.trim(),
+        summary: input.summary.trim(),
+        body: input.body.trim(),
+        cover: input.cover.trim(),
+        sources: input.sources.map((source) => ({
+          title: source.title.trim(),
+          publisher: source.publisher.trim(),
+          url: source.url.trim(),
+          claim: source.claim.trim(),
+        })),
+        published: input.published,
+      }
+      const hasInvalidSource = normalized.sources.length === 0 || normalized.sources.some((source) => (
+        !source.title || !source.publisher || !source.claim || !isValidSourceUrl(source.url)
+      ))
+      if (!normalized.title || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized.slug) || !normalized.category || !normalized.summary || !normalized.body || !normalized.cover || hasInvalidSource) throw new Error('内容信息无效')
+      if (data.contents.some((content) => content.slug === normalized.slug && content.id !== input.id)) throw new Error('内容路径已存在')
       const existing = input.id === undefined ? undefined : data.contents.find((content) => content.id === input.id)
       if (input.id !== undefined && existing === undefined) throw new Error('内容不存在')
       const content: ContentArticle = existing ?? { id: createBusinessId('CONTENT'), cover: '' } as ContentArticle
-      Object.assign(content, clone({ slug: input.slug, title: input.title, category: input.category, summary: input.summary, body: input.body, sources: input.sources, published: input.published }))
+      Object.assign(content, clone(normalized))
       if (existing === undefined) data.contents.push(content)
       persist()
       return clone(content)

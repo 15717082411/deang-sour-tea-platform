@@ -88,6 +88,8 @@ export interface PlatformRepository {
   applyMerchant(actor: Actor, input: MerchantApplicationInput): Promise<MerchantApplication>
   listMerchantProducts(actor: Actor): Promise<Product[]>
   listMerchantApplications(actor: Actor): Promise<MerchantApplication[]>
+  listAdminProducts(actor: Actor): Promise<Product[]>
+  listAdminContents(actor: Actor): Promise<ContentArticle[]>
   reviewMerchant(actor: Actor, applicationId: string, decision: ReviewDecision): Promise<MerchantApplication>
   saveProduct(actor: Actor, input: ProductDraftInput): Promise<Product>
   submitProduct(actor: Actor, productId: string): Promise<Product>

@@ -8,6 +8,7 @@ import './styles/public.css'
 import './styles/commerce.css'
 import './styles/account.css'
 import './styles/workspace.css'
+import './styles/admin.css'
 import App from './App.vue'
 import { createAppRouter } from './router'
 

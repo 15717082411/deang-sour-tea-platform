@@ -19,8 +19,6 @@ declare module 'vue-router' {
   }
 }
 
-const PendingPage = { template: '<main class="route-placeholder"><h1>内容准备中</h1></main>' }
-
 const publicRoutes: RouteRecordRaw[] = [
   { path: '', name: 'home', component: () => import('../pages/public/HomePage.vue') },
   { path: 'culture', name: 'culture', component: () => import('../pages/public/CultureIndexPage.vue') },
@@ -63,11 +61,11 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/admin', component: WorkspaceLayout, props: { kind: 'admin' }, meta: { requiresAuth: true, roles: ['ADMIN'] }, children: [
-      { path: '', name: 'admin', component: PendingPage },
-      { path: 'merchants', name: 'admin-merchants', component: PendingPage },
-      { path: 'products', name: 'admin-products', component: PendingPage },
-      { path: 'contents', name: 'admin-contents', component: PendingPage },
-      { path: 'bookings', name: 'admin-bookings', component: PendingPage },
+      { path: '', name: 'admin', component: () => import('../pages/admin/AdminDashboardPage.vue') },
+      { path: 'merchants', name: 'admin-merchants', component: () => import('../pages/admin/AdminMerchantsPage.vue') },
+      { path: 'products', name: 'admin-products', component: () => import('../pages/admin/AdminProductsPage.vue') },
+      { path: 'contents', name: 'admin-contents', component: () => import('../pages/admin/AdminContentsPage.vue') },
+      { path: 'bookings', name: 'admin-bookings', component: () => import('../pages/admin/AdminBookingsPage.vue') },
     ],
   },
   { path: '/403', name: 'forbidden', component: ForbiddenPage },
