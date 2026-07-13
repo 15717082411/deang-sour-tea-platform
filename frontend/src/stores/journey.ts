@@ -203,6 +203,10 @@ function emptyPosterStorage(): JourneyPosterStorage {
   return { version: storageVersion, postersByUser: {} }
 }
 
+function normalizePosterKey(value: string): string {
+  return value.toUpperCase()
+}
+
 function readPosterStorage(): JourneyPosterStorage {
   const serialized = window.localStorage.getItem(JOURNEY_POSTER_STORAGE_KEY)
   if (serialized === null) return emptyPosterStorage()
@@ -221,8 +225,8 @@ function readPosterStorage(): JourneyPosterStorage {
       for (const candidate of posters) {
         const poster = normalizePersistedPoster(candidate, userId)
         if (poster === null) continue
-        const normalizedId = poster.id.toUpperCase()
-        const normalizedCode = poster.code.toUpperCase()
+        const normalizedId = normalizePosterKey(poster.id)
+        const normalizedCode = normalizePosterKey(poster.code)
         if (seenIds.has(normalizedId) || seenCodes.has(normalizedCode)) continue
         seenIds.add(normalizedId)
         seenCodes.add(normalizedCode)
@@ -283,13 +287,18 @@ export const useJourneyStore = defineStore('journey', {
       if (!canClaimGuestDraft) this.clearJourneyState()
       this.boundUserId = userId
     },
+    ensureCurrentActor() {
+      this.bindActor(useAuthStore().user?.id ?? null)
+    },
     selectChoice(choice: JourneyChoice) {
+      this.ensureCurrentActor()
       const step = JOURNEY_STEPS[this.currentStepIndex]
       const option = step?.options.find(({ id }) => id === choice.optionId)
       if (step === undefined || choice.stepId !== step.id || option?.trait !== choice.trait) invalidChoices()
       this.choices[step.id] = { ...choice }
     },
     advance() {
+      this.ensureCurrentActor()
       const step = JOURNEY_STEPS[this.currentStepIndex]
       if (step === undefined) return
       if (this.choices[step.id] === undefined) throw new Error('请先完成当前步骤')
@@ -308,14 +317,16 @@ export const useJourneyStore = defineStore('journey', {
       this.currentStepIndex = JOURNEY_STEPS.length
     },
     goBack() {
+      this.ensureCurrentActor()
       if (this.currentStepIndex > 0 && this.currentStepIndex < JOURNEY_STEPS.length) this.currentStepIndex -= 1
     },
     restart() {
+      this.ensureCurrentActor()
       this.clearJourneyState()
     },
     savePoster(): JourneyPoster {
       const auth = useAuthStore()
-      this.bindActor(auth.user?.id ?? null)
+      this.ensureCurrentActor()
       if (!this.isComplete || !isDraftPoster(this.currentPoster)) throw new Error('旅程尚未完成，不能保存海报')
       if (auth.user === null) throw new JourneyAuthenticationRequiredError()
       if (this.savedPoster?.userId === auth.user.id) return this.savedPoster
@@ -329,7 +340,11 @@ export const useJourneyStore = defineStore('journey', {
 
       const storage = readPosterStorage()
       const userPosters = storage.postersByUser[auth.user.id] ?? []
-      const existing = userPosters.find(({ id, code }) => id === this.currentPoster?.id || code === this.currentPoster?.code)
+      const posterIdKey = normalizePosterKey(this.currentPoster.id)
+      const posterCodeKey = normalizePosterKey(this.currentPoster.code)
+      const existing = userPosters.find(({ id, code }) => (
+        normalizePosterKey(id) === posterIdKey || normalizePosterKey(code) === posterCodeKey
+      ))
       if (existing !== undefined) {
         this.currentPoster = existing
         this.savedPoster = existing
@@ -362,7 +377,8 @@ export const useJourneyStore = defineStore('journey', {
       return [...(readPosterStorage().postersByUser[userId] ?? [])]
     },
     loadPoster(posterId: string): JourneyPoster | null {
-      return this.listPosters().find(({ id }) => id === posterId) ?? null
+      const posterIdKey = normalizePosterKey(posterId)
+      return this.listPosters().find(({ id }) => normalizePosterKey(id) === posterIdKey) ?? null
     },
   },
 })

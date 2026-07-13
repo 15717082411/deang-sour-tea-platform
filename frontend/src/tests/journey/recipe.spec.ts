@@ -206,6 +206,41 @@ describe('journey poster persistence', () => {
     expect(saved.userId).toBe(userOne.id)
   })
 
+  it('binds the first direct mutation and prevents another account from claiming that draft', () => {
+    const auth = useAuthStore()
+    auth.user = userOne
+    const store = completeJourney()
+
+    expect(store.boundUserId).toBe(userOne.id)
+    expect(store.isComplete).toBe(true)
+
+    auth.user = userTwo
+
+    expect(() => store.savePoster()).toThrow('尚未完成')
+    expect(store.boundUserId).toBe(userTwo.id)
+    expect(store.choices).toEqual({})
+    expect(store.currentPoster).toBeNull()
+    expect(store.listPosters()).toEqual([])
+    expect(window.localStorage.getItem(JOURNEY_POSTER_STORAGE_KEY)).toBeNull()
+  })
+
+  it('binds a direct guest journey and preserves it only for the subsequent login', () => {
+    const auth = useAuthStore()
+    auth.user = null
+    const store = completeJourney(['FRESH', 'FRESH', 'PURE'])
+    const guestCode = store.currentPoster?.code
+
+    expect(store.boundUserId).toBeNull()
+    expect(store.isComplete).toBe(true)
+
+    auth.user = userOne
+    const saved = store.savePoster()
+
+    expect(store.boundUserId).toBe(userOne.id)
+    expect(saved).toMatchObject({ code: guestCode, userId: userOne.id })
+    expect(store.listPosters()).toEqual([saved])
+  })
+
   it('rebinds inside savePoster so a later account cannot save or see the previous account state', () => {
     const auth = useAuthStore()
     auth.user = userOne
@@ -324,6 +359,30 @@ describe('journey poster persistence', () => {
     auth.user = userOne
 
     expect(useJourneyStore().listPosters()).toHaveLength(1)
+  })
+
+  it('uses case-insensitive poster keys consistently when saving and loading', () => {
+    const auth = useAuthStore()
+    auth.user = userOne
+    const store = completeJourney()
+    const draft = store.currentPoster!
+    const stored = {
+      id: draft.id.toLowerCase(),
+      userId: userOne.id,
+      recipe: draft.recipe,
+      code: draft.code.toLowerCase(),
+      createdAt: draft.createdAt,
+    }
+    writePosterStorage({ [userOne.id]: [stored] })
+
+    const saved = store.savePoster()
+    const rawStorage = JSON.parse(window.localStorage.getItem(JOURNEY_POSTER_STORAGE_KEY)!) as {
+      postersByUser: Record<string, unknown[]>
+    }
+
+    expect(saved.id).toBe(stored.id)
+    expect(rawStorage.postersByUser[userOne.id]).toHaveLength(1)
+    expect(store.loadPoster(draft.id.toUpperCase())).toEqual(saved)
   })
 
   it('recovers safely from damaged storage and replaces it on the next save', () => {

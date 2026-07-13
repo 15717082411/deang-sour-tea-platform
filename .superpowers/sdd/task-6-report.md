@@ -100,3 +100,29 @@
 ### 修复提交
 
 - 提交信息：`fix: isolate journey posters by account`
+
+## 最终复核修复（2026-07-13）
+
+### RED
+
+新增复现测试后首次运行 `npm test -- src/tests/journey`：退出码 1，33 项中 3 项失败。失败分别证明：直接调用 store 完成旅程时 `boundUserId` 仍为 `undefined`；guest 直接调用 store 时也未绑定为 `null`；大小写等价的 poster id/code 在保存路径未命中已有记录。
+
+### GREEN
+
+- 新增 `ensureCurrentActor()`，并在 `selectChoice`、`advance`、`goBack`、`restart`、`savePoster` 入口先绑定或校验 `useAuthStore().user?.id ?? null`。
+- A 未经页面直接完成旅程后切换 B，B 保存会先清空 A 的选择与结果，再以“旅程尚未完成”拒绝保存；B 分区不产生记录。
+- guest 未经页面直接完成的未保存 draft 从第一次选择起绑定 `null`，登录后仍按唯一例外保留，并绑定到登录用户后保存。
+- 新增统一 `normalizePosterKey()`，读取去重、保存查重和 `loadPoster()` 查询全部采用同一大小写归一规则；大小写等价记录不会二次写入原始 storage。
+- `npm test -- src/tests/journey`：2 个测试文件、33 个测试通过。
+- `npm test`：12 个测试文件、125 个测试通过。
+- `npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`：全部通过。
+
+### 最终修复文件
+
+- `frontend/src/stores/journey.ts`
+- `frontend/src/tests/journey/recipe.spec.ts`
+- `.superpowers/sdd/task-6-report.md`
+
+### 最终修复提交
+
+- 提交信息：`fix: enforce journey actor ownership`
