@@ -163,5 +163,10 @@ describe('booking repository lifecycle', () => {
     expect(wrapper.get('[data-testid="booking-success"]').text()).toContain('核销码')
     expect(wrapper.get('[data-testid="booking-code"]').text()).toMatch(/^BOOK-/)
     expect(wrapper.get('[data-testid="copy-booking-code"]').attributes('type')).toBe('button')
+
+    await wrapper.get('[data-testid="copy-booking-code"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="copy-booking-code"]').text()).toBe('复制核销码')
+    expect(wrapper.get('[data-testid="copy-booking-code-error"]').text()).toContain('手动选择')
   })
 })

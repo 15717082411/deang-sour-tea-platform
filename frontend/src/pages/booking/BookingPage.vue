@@ -14,6 +14,7 @@ const posters = ref<JourneyPoster[]>([])
 const booking = ref<Booking | null>(null)
 const error = ref<string | null>(null)
 const copied = ref(false)
+const copyError = ref<string | null>(null)
 const initialPosterId = computed(() => {
   const requested = String(route.query.poster ?? '')
   return posters.value.some(({ id }) => id === requested) ? requested : undefined
@@ -31,8 +32,15 @@ async function submit(input: BookingInput) {
 
 async function copyCode() {
   if (booking.value === null) return
-  if (globalThis.navigator.clipboard?.writeText) await globalThis.navigator.clipboard.writeText(booking.value.code)
-  copied.value = true
+  copied.value = false
+  copyError.value = null
+  try {
+    if (!globalThis.navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable')
+    await globalThis.navigator.clipboard.writeText(booking.value.code)
+    copied.value = true
+  } catch {
+    copyError.value = '复制失败，请手动选择核销码'
+  }
 }
 </script>
 
@@ -91,6 +99,14 @@ async function copyCode() {
             aria-hidden="true"
           />{{ copied ? '已复制' : '复制核销码' }}
         </button>
+        <p
+          v-if="copyError"
+          data-testid="copy-booking-code-error"
+          class="account-alert"
+          role="alert"
+        >
+          {{ copyError }}
+        </p>
         <RouterLink to="/account/bookings">
           查看预约记录
         </RouterLink>
