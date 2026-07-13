@@ -59,6 +59,15 @@ describe('route guards', () => {
     expect(router.currentRoute.value.path).toBe('/403')
   })
 
+  it('denies an ADMIN direct access to the merchant application route', async () => {
+    const { router, auth } = createRouterContext()
+    await auth.login({ username: 'admin_demo', password: 'Demo123!' })
+
+    await router.push('/merchant/apply')
+
+    expect(router.currentRoute.value.path).toBe('/403')
+  })
+
   it('allows an approved MERCHANT to enter the merchant workspace', async () => {
     const { router, auth } = createRouterContext()
     await auth.login({ username: 'merchant_demo', password: 'Demo123!' })
@@ -111,13 +120,44 @@ describe('route guards', () => {
     expect(second.auth.user).toMatchObject({ id: 'merchant-demo', role: 'MERCHANT', merchantStatus: 'APPROVED' })
   })
 
+  it('rejects a persisted session whose user id or session id has been forged', async () => {
+    const first = createRouterContext()
+    await first.auth.login({ username: 'merchant_demo', password: 'Demo123!' })
+    window.localStorage.setItem('deang-sour-tea:session', JSON.stringify({
+      userId: 'admin-demo',
+      sessionId: 'SESSION-forged',
+    }))
+
+    const second = createRouterContext()
+    await second.auth.rehydrate()
+
+    expect(second.auth.user).toBeNull()
+    expect(second.auth.sessionId).toBeNull()
+    expect(window.localStorage.getItem('deang-sour-tea:session')).toBeNull()
+  })
+
   it('clears the in-memory account and persisted session on logout', async () => {
     const { auth } = createRouterContext()
     await auth.login({ username: 'admin_demo', password: 'Demo123!' })
 
-    auth.logout()
+    await auth.logout()
 
     expect(auth.user).toBeNull()
+    expect(window.localStorage.getItem('deang-sour-tea:session')).toBeNull()
+  })
+
+  it('invalidates the repository session when logging out', async () => {
+    const first = createRouterContext()
+    await first.auth.login({ username: 'admin_demo', password: 'Demo123!' })
+    const persisted = window.localStorage.getItem('deang-sour-tea:session')
+
+    await first.auth.logout()
+    window.localStorage.setItem('deang-sour-tea:session', persisted!)
+
+    const second = createRouterContext()
+    await second.auth.rehydrate()
+
+    expect(second.auth.user).toBeNull()
     expect(window.localStorage.getItem('deang-sour-tea:session')).toBeNull()
   })
 })

@@ -191,3 +191,57 @@ exit 0
 - `ADMIN/NONE` receives `/403` for `/merchant`; it cannot enter the merchant application/status flow.
 - `USER/PENDING` and `USER/NONE` receive `/merchant/apply`; `MERCHANT/APPROVED` reaches `/merchant`.
 - The existing guest checkout redirect, USER admin denial, redirect-sanitization tests, pending merchant behavior, lint, and typecheck remain covered by the focused suite and final checks.
+
+## Final Security Remediation (2026-07-13)
+
+### Root Cause
+
+- `/merchant/apply` required authentication but declared no role metadata, so an ADMIN could open the deep link directly.
+- Rehydration loaded a user by `userId`; the persisted `sessionId` was never checked by the repository, so a forged reference could restore another role.
+
+### RED
+
+Added regressions before implementation for direct ADMIN access, forged session references, repository pair validation, and logout invalidation.
+
+```text
+npm test -- src/tests/router/guards.spec.ts src/tests/data/demoRepository.spec.ts
+Test Files  2 failed (2)
+Tests  5 failed | 33 passed (38)
+```
+
+The failures were the expected missing `validateSession`/`logout` methods, ADMIN remaining on `/merchant/apply`, and forged or logged-out references restoring the ADMIN user.
+
+### GREEN
+
+Added the repository session contract, persisted demo session index, v3 seed boundary, session-pair validation, repository logout, auth-store validation/cleanup, and route-level USER/MERCHANT authorization.
+
+```text
+npm test -- src/tests/router/guards.spec.ts src/tests/data/demoRepository.spec.ts
+Test Files  2 passed (2)
+Tests  38 passed (38)
+```
+
+### Final Checks
+
+```text
+npm test          # 6 files, 66 tests passed
+npm run lint      # exit 0
+npm run typecheck # exit 0
+npm run build     # exit 0
+git diff --check  # clean
+```
+
+### Changed Files
+
+- `frontend/src/data/repository.ts`
+- `frontend/src/data/demoRepository.ts`
+- `frontend/src/data/seed.ts`
+- `frontend/src/stores/auth.ts`
+- `frontend/src/router/index.ts`
+- `frontend/src/components/common/AppHeader.vue`
+- `frontend/src/tests/data/demoRepository.spec.ts`
+- `frontend/src/tests/router/guards.spec.ts`
+
+### Residual Risk
+
+Demo mode stores users, passwords, and sessions in editable browser storage. The repository contract now prevents the application from trusting a forged session reference, but real security requires Spring Boot to own session creation, validation, and revocation; client-side demo storage cannot be a production trust boundary.

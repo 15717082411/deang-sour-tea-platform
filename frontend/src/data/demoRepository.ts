@@ -44,7 +44,11 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     }
     try {
       const persisted = JSON.parse(serialized) as PersistedDemoData
-      if (persisted.version === DEMO_DATA_VERSION && persisted.data !== undefined) return persisted.data
+      if (
+        persisted.version === DEMO_DATA_VERSION
+        && persisted.data !== undefined
+        && persisted.data.sessions !== undefined
+      ) return persisted.data
     } catch { /* invalid persisted data is restored below */ }
     const data = createSeedData()
     storage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ version: DEMO_DATA_VERSION, data }))
@@ -90,7 +94,12 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     if (user.role === 'MERCHANT' && merchantId(actor) === order.merchantId) return
     throw new Error('无权访问该订单')
   }
-  const createSession = (user: User): AuthSession => ({ sessionId: createBusinessId('SESSION'), user: clone(user) })
+  const createSession = (user: User): AuthSession => {
+    const sessionId = createBusinessId('SESSION')
+    data.sessions[sessionId] = user.id
+    persist()
+    return { sessionId, user: clone(user) }
+  }
   const validateCartLines = (lines: OrderRequestLine[], requireApproved: boolean): CartLine[] => {
     if (lines.length === 0) throw new Error('购物车不能为空')
     const seen = new Set<string>()
@@ -120,6 +129,15 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       data.passwords[user.id] = input.password
       persist()
       return createSession(user)
+    },
+    async validateSession(userId, sessionId) {
+      if (data.sessions[sessionId] !== userId) throw new Error('会话无效')
+      return { sessionId, user: clone(userById(userId)) }
+    },
+    async logout(sessionId) {
+      if (data.sessions[sessionId] === undefined) return
+      delete data.sessions[sessionId]
+      persist()
     },
     async getUser(userId) { return clone(userById(userId)) },
     async listProducts(query?: ProductQuery) {

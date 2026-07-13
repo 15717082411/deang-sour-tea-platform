@@ -54,6 +54,24 @@ async function createApprovedSecondMerchantProduct(repo: PlatformRepository) {
 }
 
 describe('demo repository', () => {
+  it('validates a session only when its user id and session id match', async () => {
+    const repo = createDemoRepository(new MemoryStorage())
+    const session = await repo.login({ username: 'merchant_demo', password: 'Demo123!' })
+
+    await expect(repo.validateSession(session.user.id, session.sessionId)).resolves.toEqual(session)
+    await expect(repo.validateSession('admin-demo', session.sessionId)).rejects.toThrow('会话无效')
+    await expect(repo.validateSession(session.user.id, 'SESSION-forged')).rejects.toThrow('会话无效')
+  })
+
+  it('invalidates a session on logout', async () => {
+    const repo = createDemoRepository(new MemoryStorage())
+    const session = await repo.login({ username: 'user_demo', password: 'Demo123!' })
+
+    await repo.logout(session.sessionId)
+
+    await expect(repo.validateSession(session.user.id, session.sessionId)).rejects.toThrow('会话无效')
+  })
+
   it('registers a user and completes the payment lifecycle', async () => {
     const repo = createDemoRepository(new MemoryStorage())
     const user = await repo.register({ username: 'new-user', password: 'Demo123!', phone: '13800138000' })
@@ -231,11 +249,11 @@ describe('demo repository', () => {
 
     const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
     await repo.saveCart(user.user.id, [{ productId: 'product-tasting', quantity: 1, unitPriceCents: 5900 }])
-    expect(JSON.parse(storage.getItem('deang-sour-tea:v2') ?? '{}').version).toBe(2)
+    expect(JSON.parse(storage.getItem('deang-sour-tea:v3') ?? '{}').version).toBe(3)
 
     await repo.reset()
     expect(await repo.getCart(user.user.id)).toEqual([])
-    expect(JSON.parse(storage.getItem('deang-sour-tea:v2') ?? '{}').version).toBe(2)
+    expect(JSON.parse(storage.getItem('deang-sour-tea:v3') ?? '{}').version).toBe(3)
   })
 
   it('seeds every later-task defense scenario with correct access and status', async () => {

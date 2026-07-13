@@ -26,6 +26,8 @@ export type OrderRequestLine = Pick<CartLine, 'productId' | 'quantity'>
 export interface PlatformRepository {
   login(input: LoginInput): Promise<AuthSession>
   register(input: RegisterInput): Promise<AuthSession>
+  validateSession(userId: string, sessionId: string): Promise<AuthSession>
+  logout(sessionId: string): Promise<void>
   getUser(userId: string): Promise<User>
   listProducts(query?: ProductQuery): Promise<Product[]>
   getProduct(productId: string): Promise<Product>

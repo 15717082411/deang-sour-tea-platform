@@ -40,7 +40,7 @@ const publicRoutes: RouteRecordRaw[] = [
 
 const routes: RouteRecordRaw[] = [
   { path: '/', component: PublicLayout, children: publicRoutes },
-  { path: '/merchant/apply', name: 'merchant-apply', component: PendingPage, meta: { requiresAuth: true } },
+  { path: '/merchant/apply', name: 'merchant-apply', component: PendingPage, meta: { requiresAuth: true, roles: ['USER', 'MERCHANT'] } },
   {
     path: '/account', component: AccountLayout, meta: { requiresAuth: true }, children: [
       { path: '', name: 'account', component: PendingPage },

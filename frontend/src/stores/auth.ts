@@ -60,10 +60,10 @@ export const useAuthStore = defineStore('auth', {
         return
       }
       try {
-        this.user = await useAppStore().repository.getUser(persisted.userId)
-        this.sessionId = persisted.sessionId
+        const session = await useAppStore().repository.validateSession(persisted.userId, persisted.sessionId)
+        this.applySession(session)
       } catch {
-        this.logout()
+        await this.logout()
       } finally {
         this.hydrated = true
       }
@@ -78,11 +78,16 @@ export const useAuthStore = defineStore('auth', {
       this.applySession(session)
       return session.user
     },
-    logout() {
-      this.user = null
-      this.sessionId = null
-      this.hydrated = true
-      window.localStorage.removeItem(SESSION_STORAGE_KEY)
+    async logout() {
+      const sessionId = this.sessionId ?? readPersistedSession()?.sessionId ?? null
+      try {
+        if (sessionId !== null) await useAppStore().repository.logout(sessionId)
+      } finally {
+        this.user = null
+        this.sessionId = null
+        this.hydrated = true
+        window.localStorage.removeItem(SESSION_STORAGE_KEY)
+      }
     },
   },
 })

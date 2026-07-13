@@ -12,6 +12,7 @@ import type {
 export interface DemoData {
   users: User[]
   passwords: Record<string, string>
+  sessions: Record<string, string>
   products: Product[]
   contents: ContentArticle[]
   carts: Record<string, CartLine[]>
@@ -21,8 +22,8 @@ export interface DemoData {
   merchantApplications: MerchantApplication[]
 }
 
-export const DEMO_STORAGE_KEY = 'deang-sour-tea:v2'
-export const DEMO_DATA_VERSION = 2
+export const DEMO_STORAGE_KEY = 'deang-sour-tea:v3'
+export const DEMO_DATA_VERSION = 3
 
 const seedTimestamp = '2026-07-13T00:00:00.000Z'
 
@@ -34,6 +35,7 @@ export function createSeedData(): DemoData {
       { id: 'admin-demo', username: 'admin_demo', displayName: '平台管理员', phone: '13800138002', role: 'ADMIN', merchantStatus: 'NONE' },
     ],
     passwords: { 'user-demo': 'Demo123!', 'merchant-demo': 'Demo123!', 'admin-demo': 'Demo123!' },
+    sessions: {},
     products: [
       { id: 'product-tasting', merchantId: 'merchant-demo-shop', name: '45天发酵酸茶体验装', category: '体验装', priceCents: 5900, stock: 80, sales: 1, description: '微酸回甘的入门体验装。', image: '/images/product-tasting.jpg', status: 'APPROVED' },
       { id: 'product-gift', merchantId: 'merchant-demo-shop', name: '德昂古树酸茶礼盒', category: '酸茶礼盒', priceCents: 16800, stock: 36, sales: 1, description: '适合馈赠的古树酸茶礼盒。', image: '/images/product-gift.jpg', status: 'APPROVED' },

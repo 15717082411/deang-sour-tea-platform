@@ -25,7 +25,7 @@ const workspace = computed(() => {
 })
 
 async function logout() {
-  auth.logout()
+  await auth.logout()
   app.closeMobileNavigation()
   await router.replace('/')
 }
