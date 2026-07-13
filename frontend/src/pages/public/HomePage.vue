@@ -3,6 +3,7 @@ import { ArrowRight, BookOpen, MapPin } from 'lucide-vue-next'
 import { onMounted, ref } from 'vue'
 import type { ContentArticle } from '../../domain/types'
 import { useAppStore } from '../../stores/app'
+import { CRAFT_FERMENTATION_ALT, getContentCoverAlt } from '../../utils/contentImages'
 
 const app = useAppStore()
 const articles = ref<ContentArticle[]>([])
@@ -107,7 +108,7 @@ onMounted(loadArticles)
         <figure class="split-narrative__media">
           <img
             src="/images/craft-fermentation.webp"
-            alt="竹筒旁摊开的发酵酸茶叶，项目原创视觉"
+            :alt="CRAFT_FERMENTATION_ALT"
           >
           <figcaption>项目原创视觉 · 发酵工艺场景</figcaption>
         </figure>
@@ -179,7 +180,7 @@ onMounted(loadArticles)
           >
             <img
               :src="article.cover"
-              :alt="`${article.title}主题视觉，项目原创视觉`"
+              :alt="getContentCoverAlt(article)"
             >
             <div>
               <p class="article-row__category">

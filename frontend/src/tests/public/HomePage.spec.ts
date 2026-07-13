@@ -95,6 +95,25 @@ describe('public culture pages', () => {
     }
   })
 
+  it('uses one observable description wherever the fermentation visual appears', async () => {
+    const expectedAlt = '双手将茶叶压入敞口竹筒，旁有捆扎好的竹筒，项目原创视觉'
+    const pages: Array<[Component, string]> = [
+      [HomePage, '/'],
+      [CultureIndexPage, '/culture'],
+      [CultureDetailPage, '/culture/fermentation-craft'],
+      [CraftPage, '/craft'],
+    ]
+
+    for (const [component, path] of pages) {
+      const { wrapper } = await mountPage(component, path)
+      await flushPromises()
+      const images = wrapper.findAll('img[src="/images/craft-fermentation.webp"]')
+      expect(images.length).toBeGreaterThan(0)
+      for (const image of images) expect(image.attributes('alt')).toBe(expectedAlt)
+      wrapper.unmount()
+    }
+  })
+
   it('shows an explicit loading state while culture detail is being fetched', async () => {
     const baseRepository = createDemoRepository(window.localStorage)
     let resolveContent!: (content: ContentArticle) => void

@@ -6,6 +6,7 @@ import SourceList from '../../components/culture/SourceList.vue'
 import { hasRepositoryErrorCode } from '../../data/repository'
 import type { ContentArticle } from '../../domain/types'
 import { useAppStore } from '../../stores/app'
+import { getContentCoverAlt } from '../../utils/contentImages'
 
 const app = useAppStore()
 const route = useRoute()
@@ -99,7 +100,7 @@ watch(() => route.params.slug, loadArticle, { immediate: true })
       <header class="article-hero">
         <img
           :src="article.cover"
-          :alt="`${article.title}主题视觉，项目原创视觉`"
+          :alt="getContentCoverAlt(article)"
         >
         <div class="article-hero__copy public-container">
           <RouterLink

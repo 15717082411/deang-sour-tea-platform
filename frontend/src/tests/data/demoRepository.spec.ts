@@ -1,7 +1,7 @@
-import type { Actor, MerchantApplicationInput, OrderContact } from '../../domain/types'
+import type { Actor, ContentArticle, MerchantApplicationInput, OrderContact } from '../../domain/types'
 import type { PlatformRepository } from '../../data/repository'
 import { createDemoRepository } from '../../data/demoRepository'
-import { createSeedData, DEMO_STORAGE_KEY } from '../../data/seed'
+import { createSeedData, DEMO_STORAGE_KEY, type DemoData } from '../../data/seed'
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>()
@@ -36,6 +36,37 @@ const actorFor = (user: { id: string; role: Actor['role']; merchantId?: string }
   ...(user.merchantId === undefined ? {} : { merchantId: user.merchantId }),
 })
 
+const v3BuiltInContents: ContentArticle[] = [
+  {
+    id: 'content-about',
+    slug: 'what-is-sour-tea',
+    title: '德昂族酸茶是什么',
+    category: '酸茶科普',
+    summary: '介绍酸茶的来源与风味。',
+    body: '德昂族酸茶是围绕古法制茶经验形成的非遗体验核心内容。',
+    cover: '/images/content-about.jpg',
+    sources: [],
+    published: true,
+  },
+  {
+    id: 'content-craft',
+    slug: 'fermentation-craft',
+    title: '杀青、揉捻与45天发酵',
+    category: '制作技艺',
+    summary: '把手工经验拆解为三步。',
+    body: '平台将杀青、揉捻和发酵拆解为互动与线下工坊体验。',
+    cover: '/images/content-craft.jpg',
+    sources: [],
+    published: true,
+  },
+]
+
+const createV3Data = (): DemoData => {
+  const data = createSeedData()
+  data.contents = structuredClone(v3BuiltInContents)
+  return data
+}
+
 async function createApprovedSecondMerchantProduct(repo: PlatformRepository) {
   const applicant = await repo.register({ username: 'other-merchant', password: 'Demo123!', phone: '13800138003' })
   const application = await repo.applyMerchant(actorFor(applicant.user), {
@@ -57,7 +88,7 @@ async function createApprovedSecondMerchantProduct(repo: PlatformRepository) {
 describe('demo repository', () => {
   it('migrates the real v3 key to v4 without losing user business data', async () => {
     const storage = new MemoryStorage()
-    const legacy = createSeedData()
+    const legacy = createV3Data()
     const customUser = {
       id: 'user-custom',
       username: 'custom_user',
@@ -144,8 +175,6 @@ describe('demo repository', () => {
     legacy.products[0] = { ...legacy.products[0], image: '/images/product-tasting.jpg', stock: 11, status: 'OFF_SHELF' }
     legacy.products[1] = { ...legacy.products[1], image: '/images/product-gift.jpg', stock: 13 }
     legacy.products.push(customProduct)
-    legacy.contents[0] = { ...legacy.contents[0], title: '旧酸茶科普', body: '旧正文', cover: '/images/content-about.jpg', sources: [] }
-    legacy.contents[1] = { ...legacy.contents[1], title: '杀青、揉捻与45天发酵', body: '旧工艺正文', cover: '/images/content-craft.jpg', sources: [] }
     legacy.contents.push(customContent)
     legacy.orders[0].lines[0].image = '/images/product-tasting.jpg'
     legacy.orders[1].lines[0].image = '/images/product-gift.jpg'
@@ -181,9 +210,84 @@ describe('demo repository', () => {
     expect(storage.getItem('deang-sour-tea:v3')).toBe(serializedV3)
   })
 
+  it('upgrades only unchanged v3 content fields and preserves user edits and extensions', () => {
+    const storage = new MemoryStorage()
+    const legacy = createV3Data()
+    const editedAbout = Object.assign(legacy.contents[0], {
+      title: '用户修改的酸茶标题',
+      body: '用户修改的酸茶正文。',
+      published: false,
+      customField: '用户扩展字段',
+    })
+    storage.setItem('deang-sour-tea:v3', JSON.stringify({ version: 3, data: legacy }))
+
+    createDemoRepository(storage)
+
+    const persisted = JSON.parse(storage.getItem(DEMO_STORAGE_KEY) ?? '{}') as {
+      version: number
+      data: DemoData & { contents: Array<ContentArticle & { customField?: string }> }
+    }
+    const migratedAbout = persisted.data.contents.find(({ id }) => id === editedAbout.id)
+    const currentAbout = createSeedData().contents.find(({ id }) => id === editedAbout.id)
+
+    expect(migratedAbout).toMatchObject({
+      title: editedAbout.title,
+      body: editedAbout.body,
+      published: editedAbout.published,
+      customField: editedAbout.customField,
+      cover: currentAbout?.cover,
+      sources: currentAbout?.sources,
+      summary: currentAbout?.summary,
+    })
+  })
+
+  it.each([
+    ['null sessions', (data: Record<string, unknown>) => { data.sessions = null }],
+    ['missing bookings', (data: Record<string, unknown>) => { delete data.bookings }],
+    ['wrong products collection', (data: Record<string, unknown>) => { data.products = {} }],
+    ['non-array cart value', (data: Record<string, unknown>) => { data.carts = { 'user-demo': {} } }],
+    ['broken order lines', (data: Record<string, unknown>) => {
+      const orders = data.orders as Array<Record<string, unknown>>
+      orders[0].lines = {}
+    }],
+  ])('rejects invalid v3 data with %s and writes a fresh v4 seed', (_caseName, corrupt) => {
+    const storage = new MemoryStorage()
+    const legacy = createV3Data() as unknown as Record<string, unknown>
+    corrupt(legacy)
+    storage.setItem('deang-sour-tea:v3', JSON.stringify({ version: 3, data: legacy }))
+
+    expect(() => createDemoRepository(storage)).not.toThrow()
+
+    expect(JSON.parse(storage.getItem(DEMO_STORAGE_KEY) ?? '{}')).toEqual({
+      version: 4,
+      data: createSeedData(),
+    })
+  })
+
+  it('deduplicates built-in content ids deterministically and migrates the first entry', () => {
+    const storage = new MemoryStorage()
+    const legacy = createV3Data()
+    legacy.contents[1] = { ...legacy.contents[1], title: '用户保留的第一条工艺标题' }
+    legacy.contents.push(
+      { ...v3BuiltInContents[0], title: '不应保留的第二条科普' },
+      { ...v3BuiltInContents[1], title: '不应保留的第二条工艺' },
+    )
+    storage.setItem('deang-sour-tea:v3', JSON.stringify({ version: 3, data: legacy }))
+
+    createDemoRepository(storage)
+
+    const persisted = JSON.parse(storage.getItem(DEMO_STORAGE_KEY) ?? '{}') as { data: DemoData }
+    const aboutEntries = persisted.data.contents.filter(({ id }) => id === 'content-about')
+    const craftEntries = persisted.data.contents.filter(({ id }) => id === 'content-craft')
+    expect(aboutEntries).toHaveLength(1)
+    expect(craftEntries).toHaveLength(1)
+    expect(aboutEntries[0].title).toBe(createSeedData().contents[0].title)
+    expect(craftEntries[0].title).toBe('用户保留的第一条工艺标题')
+  })
+
   it('adds a missing built-in culture article once and leaves an existing v4 migration unchanged', async () => {
     const storage = new MemoryStorage()
-    const legacy = createSeedData()
+    const legacy = createV3Data()
     legacy.contents = legacy.contents.filter(({ id }) => id !== 'content-craft')
     legacy.contents.push({
       id: 'content-migration-sentinel',

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Coffee, Flame, Hand, Leaf, PackageOpen } from 'lucide-vue-next'
+import { CRAFT_FERMENTATION_ALT } from '../../utils/contentImages'
 
 const steps = [
   {
@@ -28,7 +29,7 @@ const steps = [
     detail: '茶叶装入竹筒或竹篮后密封捆扎。公开材料记录一类坑或地窖工艺为50—70天。',
     icon: PackageOpen,
     image: '/images/craft-fermentation.webp',
-    alt: '将茶叶压入敞口竹筒并准备封装，项目原创视觉',
+    alt: CRAFT_FERMENTATION_ALT,
   },
   {
     number: '05',

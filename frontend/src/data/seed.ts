@@ -127,18 +127,98 @@ export function createSeedData(): DemoData {
   }
 }
 
-const contentSeedIds = new Set(['content-about', 'content-craft'])
+const v3BuiltInContents: ContentArticle[] = [
+  {
+    id: 'content-about',
+    slug: 'what-is-sour-tea',
+    title: '德昂族酸茶是什么',
+    category: '酸茶科普',
+    summary: '介绍酸茶的来源与风味。',
+    body: '德昂族酸茶是围绕古法制茶经验形成的非遗体验核心内容。',
+    cover: '/images/content-about.jpg',
+    sources: [],
+    published: true,
+  },
+  {
+    id: 'content-craft',
+    slug: 'fermentation-craft',
+    title: '杀青、揉捻与45天发酵',
+    category: '制作技艺',
+    summary: '把手工经验拆解为三步。',
+    body: '平台将杀青、揉捻和发酵拆解为互动与线下工坊体验。',
+    cover: '/images/content-craft.jpg',
+    sources: [],
+    published: true,
+  },
+]
+const contentArticleFields = [
+  'id',
+  'slug',
+  'title',
+  'category',
+  'summary',
+  'body',
+  'cover',
+  'sources',
+  'published',
+] as const satisfies readonly (keyof ContentArticle)[]
+const contentSeedIds = new Set(v3BuiltInContents.map(({ id }) => id))
 const builtInImageMigrations: Record<string, { from: string; to: string }> = {
   'product-tasting': { from: '/images/product-tasting.jpg', to: '/images/product-tasting.webp' },
   'product-gift': { from: '/images/product-gift.jpg', to: '/images/product-gift.webp' },
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => (
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+)
+
+function isDeepEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left)
+      && Array.isArray(right)
+      && left.length === right.length
+      && left.every((value, index) => isDeepEqual(value, right[index]))
+  }
+  if (!isRecord(left) || !isRecord(right)) return false
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+  return leftKeys.length === rightKeys.length
+    && leftKeys.every((key) => Object.prototype.hasOwnProperty.call(right, key) && isDeepEqual(left[key], right[key]))
+}
+
+function migrateBuiltInContent(
+  content: ContentArticle,
+  v3Content: ContentArticle,
+  currentContent: ContentArticle,
+): ContentArticle {
+  const migrated = { ...content }
+  const mutableMigrated = migrated as unknown as Record<string, unknown>
+  for (const field of contentArticleFields) {
+    if (isDeepEqual(content[field], v3Content[field])) {
+      mutableMigrated[field] = structuredClone(currentContent[field])
+    }
+  }
+  return migrated
 }
 
 export function migrateDemoDataV3(legacyData: DemoData): DemoData {
   const migrated = JSON.parse(JSON.stringify(legacyData)) as DemoData
   const currentContents = createSeedData().contents.filter(({ id }) => contentSeedIds.has(id))
   const currentContentById = new Map(currentContents.map((content) => [content.id, content]))
+  const v3ContentById = new Map(v3BuiltInContents.map((content) => [content.id, content]))
+  const migratedContentIds = new Set<string>()
 
-  migrated.contents = migrated.contents.map((content) => currentContentById.get(content.id) ?? content)
+  migrated.contents = migrated.contents.flatMap((content) => {
+    if (!contentSeedIds.has(content.id)) return [content]
+    if (migratedContentIds.has(content.id)) return []
+    migratedContentIds.add(content.id)
+    const v3Content = v3ContentById.get(content.id)
+    const currentContent = currentContentById.get(content.id)
+    return v3Content !== undefined && currentContent !== undefined
+      ? [migrateBuiltInContent(content, v3Content, currentContent)]
+      : [content]
+  })
   for (const content of currentContents) {
     if (!migrated.contents.some(({ id }) => id === content.id)) migrated.contents.push(content)
   }

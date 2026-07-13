@@ -33,12 +33,41 @@ import {
   type DemoData,
 } from './seed'
 
-interface PersistedDemoData { version: number; data: DemoData }
-
 const clone = <Value>(value: Value): Value => JSON.parse(JSON.stringify(value)) as Value
 const now = (): string => new Date().toISOString()
 function orderEvent(status: string, label: string, note?: string) {
   return { status, label, at: now(), ...(note === undefined ? {} : { note }) }
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => (
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+)
+
+const demoDataArrayFields = [
+  'users',
+  'products',
+  'contents',
+  'orders',
+  'afterSales',
+  'bookings',
+  'merchantApplications',
+] as const
+
+function isDemoData(value: unknown): value is DemoData {
+  if (!isRecord(value)) return false
+  if (!demoDataArrayFields.every((field) => (
+    Array.isArray(value[field]) && value[field].every(isRecord)
+  ))) return false
+  if (!isRecord(value.passwords) || !isRecord(value.sessions) || !isRecord(value.carts)) return false
+  if (!Object.values(value.carts).every((cart) => Array.isArray(cart) && cart.every(isRecord))) return false
+  const orders = value.orders
+  return Array.isArray(orders) && orders.every((order: unknown) => (
+    isRecord(order) && Array.isArray(order.lines) && order.lines.every(isRecord)
+  ))
+}
+
+function hasVersionedDemoData(value: unknown, version: number): value is { version: number; data: DemoData } {
+  return isRecord(value) && value.version === version && isDemoData(value.data)
 }
 
 export function createDemoRepository(storage: Storage): PlatformRepository {
@@ -48,8 +77,8 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       const legacySerialized = storage.getItem(LEGACY_DEMO_STORAGE_KEY)
       if (legacySerialized !== null) {
         try {
-          const legacy = JSON.parse(legacySerialized) as PersistedDemoData
-          if (legacy.version === 3 && legacy.data?.sessions !== undefined) {
+          const legacy: unknown = JSON.parse(legacySerialized)
+          if (hasVersionedDemoData(legacy, 3)) {
             const data = migrateDemoDataV3(legacy.data)
             storage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ version: DEMO_DATA_VERSION, data }))
             return data
@@ -61,12 +90,8 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return data
     }
     try {
-      const persisted = JSON.parse(serialized) as PersistedDemoData
-      if (
-        persisted.version === DEMO_DATA_VERSION
-        && persisted.data !== undefined
-        && persisted.data.sessions !== undefined
-      ) return persisted.data
+      const persisted: unknown = JSON.parse(serialized)
+      if (hasVersionedDemoData(persisted, DEMO_DATA_VERSION)) return persisted.data
     } catch { /* invalid persisted data is restored below */ }
     const data = createSeedData()
     storage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ version: DEMO_DATA_VERSION, data }))

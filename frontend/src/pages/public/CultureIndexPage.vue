@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-vue-next'
 import { onMounted, ref } from 'vue'
 import type { ContentArticle } from '../../domain/types'
 import { useAppStore } from '../../stores/app'
+import { getContentCoverAlt } from '../../utils/contentImages'
 
 const app = useAppStore()
 const articles = ref<ContentArticle[]>([])
@@ -86,7 +87,7 @@ onMounted(loadContents)
           >
             <img
               :src="article.cover"
-              :alt="`${article.title}主题视觉，项目原创视觉`"
+              :alt="getContentCoverAlt(article)"
             >
             <div>
               <p class="article-row__category">
