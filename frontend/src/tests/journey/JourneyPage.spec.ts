@@ -17,6 +17,13 @@ const loggedInUser: User = {
   merchantStatus: 'NONE',
 }
 
+const secondLoggedInUser: User = {
+  ...loggedInUser,
+  id: 'journey-page-user-two',
+  username: 'journey_page_two',
+  displayName: '另一位寻茶人',
+}
+
 async function mountJourney() {
   const pinia = createPinia()
   const router = createRouter({
@@ -24,7 +31,6 @@ async function mountJourney() {
     routes: [
       { path: '/journey', name: 'journey', component: JourneyPage },
       { path: '/login', name: 'login', component: { template: '<main>登录页</main>' } },
-      { path: '/booking', name: 'booking', component: { template: '<main>预约工坊页</main>' } },
     ],
   })
   await router.push('/journey')
@@ -90,6 +96,7 @@ describe('JourneyPage', () => {
   it('clears choices, result, and save state when restarting', async () => {
     const { wrapper, pinia } = await mountJourney()
     useAuthStore(pinia).user = loggedInUser
+    await flushPromises()
     await chooseFirstAndAdvance(wrapper)
     await chooseFirstAndAdvance(wrapper)
     await chooseFirstAndAdvance(wrapper)
@@ -123,7 +130,7 @@ describe('JourneyPage', () => {
     expect(useJourneyStore(pinia).currentPoster?.code).toBe(draftCode)
   })
 
-  it('keeps the completed result through login in the same SPA session and exposes booking after save', async () => {
+  it('keeps the completed guest result through login in the same SPA session and binds it on save', async () => {
     const { wrapper, router, pinia } = await mountJourney()
     await chooseFirstAndAdvance(wrapper)
     await chooseFirstAndAdvance(wrapper)
@@ -133,12 +140,40 @@ describe('JourneyPage', () => {
 
     await wrapper.get('[data-testid="save-poster"]').trigger('click')
     useAuthStore(pinia).user = loggedInUser
+    await flushPromises()
     await router.push('/journey')
     await wrapper.get('[data-testid="save-poster"]').trigger('click')
 
     expect(journey.currentPoster?.code).toBe(draftCode)
+    expect(journey.boundUserId).toBe(loggedInUser.id)
+    expect(journey.currentPoster?.userId).toBe(loggedInUser.id)
     expect(wrapper.get('[role="status"]').text()).toContain('保存成功')
-    expect(wrapper.get('[data-testid="booking-action"]').attributes('href')).toBe('/booking')
     expect(wrapper.text()).toContain(loggedInUser.displayName)
+    expect(wrapper.find('[data-testid="booking-action"]').exists()).toBe(false)
+  })
+
+  it('clears a saved result immediately when the authenticated account changes', async () => {
+    const { wrapper, pinia } = await mountJourney()
+    const auth = useAuthStore(pinia)
+    const journey = useJourneyStore(pinia)
+    auth.user = loggedInUser
+    await flushPromises()
+    await chooseFirstAndAdvance(wrapper)
+    await chooseFirstAndAdvance(wrapper)
+    await chooseFirstAndAdvance(wrapper)
+    await wrapper.get('[data-testid="save-poster"]').trigger('click')
+    const firstCode = journey.currentPoster?.code
+
+    auth.user = secondLoggedInUser
+    await flushPromises()
+
+    expect(journey.boundUserId).toBe(secondLoggedInUser.id)
+    expect(journey.currentStepIndex).toBe(0)
+    expect(journey.choices).toEqual({})
+    expect(journey.currentPoster).toBeNull()
+    expect(journey.savedPoster).toBeNull()
+    expect(journey.saveStatus).toBe('idle')
+    expect(wrapper.find('[data-testid="recipe-poster"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain(firstCode)
   })
 })

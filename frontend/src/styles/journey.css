@@ -172,7 +172,6 @@
 
 .journey-action--primary { border-color: var(--culture-green); color: #fff; background: var(--culture-green); }
 .journey-action--secondary { color: var(--culture-charcoal); background: transparent; }
-.journey-action--booking { border-color: var(--culture-gold); color: var(--culture-charcoal); background: var(--culture-gold); }
 .journey-action:disabled { cursor: not-allowed; opacity: 0.48; }
 
 .journey-result {

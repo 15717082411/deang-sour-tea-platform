@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, BookmarkPlus, CalendarDays, ChevronRight, RotateCcw } from 'lucide-vue-next'
+import { ArrowLeft, BookmarkPlus, ChevronRight, RotateCcw } from 'lucide-vue-next'
 import JourneyStep from '../../components/journey/JourneyStep.vue'
 import RecipePoster from '../../components/journey/RecipePoster.vue'
 import type { JourneyChoice } from '../../domain/types'
@@ -17,6 +17,15 @@ const auth = useAuthStore()
 const journey = useJourneyStore()
 const router = useRouter()
 const saveError = ref('')
+
+watch(
+  () => auth.user?.id ?? null,
+  (userId) => {
+    saveError.value = ''
+    journey.bindActor(userId)
+  },
+  { immediate: true },
+)
 
 const currentStep = computed(() => JOURNEY_STEPS[journey.currentStepIndex] ?? null)
 const currentChoice = computed(() => {
@@ -184,18 +193,6 @@ async function savePoster() {
               />
               {{ journey.saveStatus === 'saved' ? '已保存' : '保存配方海报' }}
             </button>
-            <RouterLink
-              v-if="journey.saveStatus === 'saved'"
-              to="/booking"
-              class="journey-action journey-action--booking"
-              data-testid="booking-action"
-            >
-              <CalendarDays
-                :size="18"
-                aria-hidden="true"
-              />
-              预约工坊
-            </RouterLink>
           </div>
         </div>
       </div>

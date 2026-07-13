@@ -40,6 +40,24 @@ function completeJourney(traits: JourneyChoice['trait'][] = ['PURE', 'PURE', 'PU
   return store
 }
 
+function storedPoster(userId: string, token = 'abc123'): Record<string, unknown> {
+  return {
+    id: `JOURNEY_POSTER-m${token}-0001`,
+    userId,
+    recipe: buildRecipe([
+      choice('origin', 'PURE'),
+      choice('nature', 'PURE'),
+      choice('craft', 'PURE'),
+    ]),
+    code: `TEA-M${token.toUpperCase()}-0002`,
+    createdAt: '2026-07-13T00:00:00.000Z',
+  }
+}
+
+function writePosterStorage(postersByUser: Record<string, unknown>) {
+  window.localStorage.setItem(JOURNEY_POSTER_STORAGE_KEY, JSON.stringify({ version: 1, postersByUser }))
+}
+
 describe('buildRecipe', () => {
   it.each([
     [['PURE', 'PURE', 'FRESH'], '本真原味'],
@@ -138,6 +156,7 @@ describe('journey poster persistence', () => {
 
     store.restart()
     auth.user = userTwo
+    store.bindActor(userTwo.id)
     completeJourney(['WARM', 'WARM', 'FRESH'])
     const secondPoster = store.savePoster()
 
@@ -147,6 +166,164 @@ describe('journey poster persistence', () => {
     auth.user = userOne
     expect(store.listPosters().map(({ id }) => id)).toEqual([firstPoster.id])
     expect(store.loadPoster(secondPoster.id)).toBeNull()
+  })
+
+  it.each([
+    ['logout', null],
+    ['account switch', userTwo],
+  ])('clears an authenticated journey on %s', (_label, nextUser) => {
+    const auth = useAuthStore()
+    auth.user = userOne
+    const store = useJourneyStore()
+    store.bindActor(userOne.id)
+    completeJourney()
+    store.savePoster()
+
+    auth.user = nextUser
+    store.bindActor(nextUser?.id ?? null)
+
+    expect(store.boundUserId).toBe(nextUser?.id ?? null)
+    expect(store.currentStepIndex).toBe(0)
+    expect(store.choices).toEqual({})
+    expect(store.currentPoster).toBeNull()
+    expect(store.savedPoster).toBeNull()
+    expect(store.saveStatus).toBe('idle')
+  })
+
+  it('preserves only a completed unsaved guest draft when binding the login user', () => {
+    const store = useJourneyStore()
+    store.bindActor(null)
+    completeJourney(['FRESH', 'FRESH', 'PURE'])
+    const guestCode = store.currentPoster?.code
+
+    const auth = useAuthStore()
+    auth.user = userOne
+    store.bindActor(userOne.id)
+    const saved = store.savePoster()
+
+    expect(store.boundUserId).toBe(userOne.id)
+    expect(saved.code).toBe(guestCode)
+    expect(saved.userId).toBe(userOne.id)
+  })
+
+  it('rebinds inside savePoster so a later account cannot save or see the previous account state', () => {
+    const auth = useAuthStore()
+    auth.user = userOne
+    const store = useJourneyStore()
+    store.bindActor(userOne.id)
+    completeJourney()
+    const first = store.savePoster()
+
+    auth.user = userTwo
+
+    expect(() => store.savePoster()).toThrow('尚未完成')
+    expect(store.boundUserId).toBe(userTwo.id)
+    expect(store.currentPoster).toBeNull()
+    expect(store.listPosters()).toEqual([])
+    expect(store.loadPoster(first.id)).toBeNull()
+  })
+
+  it('normalizes extra poster and recipe fields and never rewrites them on a later save', () => {
+    const forged = {
+      ...storedPoster(userOne.id),
+      role: 'ADMIN',
+      user: { id: 'forged-user', role: 'ADMIN' },
+      unknown: { nested: true },
+      recipe: {
+        ...(storedPoster(userOne.id).recipe as Record<string, unknown>),
+        role: 'ADMIN',
+        user: { id: 'forged-user' },
+      },
+    }
+    writePosterStorage({ [userOne.id]: [forged] })
+    const auth = useAuthStore()
+    auth.user = userOne
+    const store = useJourneyStore()
+
+    const [normalized] = store.listPosters()
+    expect(Object.keys(normalized!).sort()).toEqual(['code', 'createdAt', 'id', 'recipe', 'userId'])
+    expect(Object.keys(normalized!.recipe).sort()).toEqual(['description', 'id', 'ingredients', 'name'])
+
+    store.bindActor(userOne.id)
+    completeJourney(['WARM', 'WARM', 'PURE'])
+    store.savePoster()
+    const rewritten = JSON.parse(window.localStorage.getItem(JOURNEY_POSTER_STORAGE_KEY)!) as {
+      postersByUser: Record<string, Array<Record<string, unknown>>>
+    }
+
+    for (const poster of rewritten.postersByUser[userOne.id]!) {
+      expect(Object.keys(poster).sort()).toEqual(['code', 'createdAt', 'id', 'recipe', 'userId'])
+      expect(Object.keys(poster.recipe as Record<string, unknown>).sort()).toEqual(['description', 'id', 'ingredients', 'name'])
+    }
+  })
+
+  it('keeps valid partitions and records when another partition or record is damaged', () => {
+    const otherUser = { ...userTwo, id: 'journey-user-three' }
+    writePosterStorage({
+      [userOne.id]: [storedPoster(userOne.id, 'valid1'), { ...storedPoster(userOne.id, 'bad001'), code: 'invalid' }],
+      [userTwo.id]: 'damaged-partition',
+      [otherUser.id]: [storedPoster(otherUser.id, 'valid3')],
+    })
+    const auth = useAuthStore()
+    const store = useJourneyStore()
+
+    auth.user = userOne
+    expect(store.listPosters()).toHaveLength(1)
+    auth.user = userTwo
+    expect(store.listPosters()).toEqual([])
+    auth.user = otherUser
+    expect(store.listPosters()).toHaveLength(1)
+  })
+
+  it('drops invalid business ids, codes, dates, and duplicate ids or codes', () => {
+    const valid = storedPoster(userOne.id, 'valid9')
+    writePosterStorage({
+      [userOne.id]: [
+        valid,
+        { ...valid, id: 'poster-invalid' },
+        { ...valid, id: 'JOURNEY_POSTER-other-0003', code: 'BOOK-invalid' },
+        { ...valid, id: 'JOURNEY_POSTER-other-0004', code: 'TEA-other-0004', createdAt: '2026-07-13' },
+        { ...valid, id: 'JOURNEY_POSTER-other-0005', code: 'TEA-other-0005', createdAt: 'not-a-date' },
+        { ...valid },
+        { ...valid, id: 'JOURNEY_POSTER-other-0006', code: String(valid.code).toLowerCase() },
+      ],
+    })
+    const auth = useAuthStore()
+    auth.user = userOne
+    const store = useJourneyStore()
+
+    const posters = store.listPosters()
+
+    expect(posters).toHaveLength(1)
+    expect(Number.isNaN(Date.parse(posters[0]!.createdAt))).toBe(false)
+    expect(new Date(posters[0]!.createdAt).toISOString()).toBe(posters[0]!.createdAt)
+  })
+
+  it('deduplicates within one user without allowing another partition to shadow valid data', () => {
+    const first = storedPoster(userOne.id, 'shared1')
+    const second = { ...first, userId: userTwo.id }
+    writePosterStorage({ [userOne.id]: [first], [userTwo.id]: [second] })
+    const auth = useAuthStore()
+    const store = useJourneyStore()
+
+    auth.user = userOne
+    expect(store.listPosters()).toHaveLength(1)
+    auth.user = userTwo
+    expect(store.listPosters()).toHaveLength(1)
+  })
+
+  it('accepts case-insensitive business ids with sequence segments longer than four digits', () => {
+    writePosterStorage({
+      [userOne.id]: [{
+        ...storedPoster(userOne.id),
+        id: 'journey_poster-mvalid-00001',
+        code: 'tea-MVALID-00002',
+      }],
+    })
+    const auth = useAuthStore()
+    auth.user = userOne
+
+    expect(useJourneyStore().listPosters()).toHaveLength(1)
   })
 
   it('recovers safely from damaged storage and replaces it on the next save', () => {

@@ -8,6 +8,8 @@ export const JOURNEY_POSTER_STORAGE_KEY = 'deang-sour-tea:journey-posters:v1'
 const journeyStepIds = ['origin', 'nature', 'craft'] as const
 const journeyTraits = ['PURE', 'FRESH', 'WARM'] as const
 const storageVersion = 1
+const posterIdPattern = /^JOURNEY_POSTER-[A-Z0-9]+-[A-Z0-9]{4,}$/i
+const posterCodePattern = /^TEA-[A-Z0-9]+-[A-Z0-9]{4,}$/i
 
 export type JourneyStepId = (typeof journeyStepIds)[number]
 export type JourneyTrait = JourneyChoice['trait']
@@ -138,30 +140,55 @@ export function buildRecipe(choices: JourneyChoice[]): JourneyRecipe {
   return { ...recipe, ingredients: [...recipe.ingredients] }
 }
 
-function isJourneyRecipe(value: unknown): value is JourneyRecipe {
-  if (!isRecord(value)) return false
+function normalizeJourneyRecipe(value: unknown): JourneyRecipe | null {
+  if (!isRecord(value)) return null
   const canonicalRecipe = Object.values(recipes).find(({ id, name }) => id === value.id && name === value.name)
-  return canonicalRecipe !== undefined
-    && value.description === canonicalRecipe.description
-    && Array.isArray(value.ingredients)
-    && value.ingredients.length === canonicalRecipe.ingredients.length
-    && value.ingredients.every((ingredient, index) => ingredient === canonicalRecipe.ingredients[index])
+  if (canonicalRecipe === undefined
+    || value.description !== canonicalRecipe.description
+    || !Array.isArray(value.ingredients)
+    || value.ingredients.length !== canonicalRecipe.ingredients.length
+    || !value.ingredients.every((ingredient, index) => ingredient === canonicalRecipe.ingredients[index])) {
+    return null
+  }
+  return { ...canonicalRecipe, ingredients: [...canonicalRecipe.ingredients] }
+}
+
+function isCanonicalIsoDate(value: unknown): value is string {
+  if (typeof value !== 'string') return false
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value
 }
 
 function isDraftPoster(value: unknown): value is JourneyPoster {
   if (!isRecord(value)) return false
   return typeof value.id === 'string'
-    && value.id.length > 0
+    && posterIdPattern.test(value.id)
     && (value.userId === undefined || typeof value.userId === 'string')
-    && isJourneyRecipe(value.recipe)
+    && normalizeJourneyRecipe(value.recipe) !== null
     && typeof value.code === 'string'
-    && value.code.startsWith('TEA-')
-    && typeof value.createdAt === 'string'
-    && !Number.isNaN(Date.parse(value.createdAt))
+    && posterCodePattern.test(value.code)
+    && isCanonicalIsoDate(value.createdAt)
 }
 
-function isPersistedPoster(value: unknown, userId: string): value is JourneyPoster {
-  return isDraftPoster(value) && value.userId === userId
+function normalizePersistedPoster(value: unknown, userId: string): JourneyPoster | null {
+  if (!isRecord(value)
+    || typeof value.id !== 'string'
+    || !posterIdPattern.test(value.id)
+    || value.userId !== userId
+    || typeof value.code !== 'string'
+    || !posterCodePattern.test(value.code)
+    || !isCanonicalIsoDate(value.createdAt)) {
+    return null
+  }
+  const recipe = normalizeJourneyRecipe(value.recipe)
+  if (recipe === null) return null
+  return {
+    id: value.id,
+    userId,
+    recipe,
+    code: value.code,
+    createdAt: value.createdAt,
+  }
 }
 
 function recipesMatch(left: JourneyRecipe, right: JourneyRecipe): boolean {
@@ -187,10 +214,21 @@ function readPosterStorage(): JourneyPosterStorage {
     }
     const postersByUser: Record<string, JourneyPoster[]> = {}
     for (const [userId, posters] of Object.entries(parsed.postersByUser)) {
-      if (userId.length === 0 || !Array.isArray(posters) || !posters.every((poster) => isPersistedPoster(poster, userId))) {
-        return emptyPosterStorage()
+      if (userId.length === 0 || !Array.isArray(posters)) continue
+      const normalizedPosters: JourneyPoster[] = []
+      const seenIds = new Set<string>()
+      const seenCodes = new Set<string>()
+      for (const candidate of posters) {
+        const poster = normalizePersistedPoster(candidate, userId)
+        if (poster === null) continue
+        const normalizedId = poster.id.toUpperCase()
+        const normalizedCode = poster.code.toUpperCase()
+        if (seenIds.has(normalizedId) || seenCodes.has(normalizedCode)) continue
+        seenIds.add(normalizedId)
+        seenCodes.add(normalizedCode)
+        normalizedPosters.push(poster)
       }
-      postersByUser[userId] = posters
+      if (normalizedPosters.length > 0) postersByUser[userId] = normalizedPosters
     }
     return { version: storageVersion, postersByUser }
   } catch {
@@ -209,6 +247,7 @@ function createDraftPoster(recipe: JourneyRecipe): JourneyPoster {
 
 export const useJourneyStore = defineStore('journey', {
   state: () => ({
+    boundUserId: undefined as string | null | undefined,
     currentStepIndex: 0,
     choices: {} as JourneyChoiceMap,
     currentPoster: null as JourneyPoster | null,
@@ -219,6 +258,31 @@ export const useJourneyStore = defineStore('journey', {
     isComplete: (state): boolean => state.currentStepIndex === JOURNEY_STEPS.length && state.currentPoster !== null,
   },
   actions: {
+    clearJourneyState() {
+      this.currentStepIndex = 0
+      this.choices = {}
+      this.currentPoster = null
+      this.savedPoster = null
+      this.saveStatus = 'idle'
+    },
+    bindActor(userId: string | null) {
+      if (userId !== null && userId.length === 0) throw new Error('旅程用户标识无效')
+      if (this.boundUserId === undefined) {
+        this.boundUserId = userId
+        return
+      }
+      if (this.boundUserId === userId) return
+
+      const canClaimGuestDraft = this.boundUserId === null
+        && userId !== null
+        && this.isComplete
+        && isDraftPoster(this.currentPoster)
+        && this.currentPoster.userId === undefined
+        && this.savedPoster === null
+        && this.saveStatus === 'idle'
+      if (!canClaimGuestDraft) this.clearJourneyState()
+      this.boundUserId = userId
+    },
     selectChoice(choice: JourneyChoice) {
       const step = JOURNEY_STEPS[this.currentStepIndex]
       const option = step?.options.find(({ id }) => id === choice.optionId)
@@ -247,15 +311,12 @@ export const useJourneyStore = defineStore('journey', {
       if (this.currentStepIndex > 0 && this.currentStepIndex < JOURNEY_STEPS.length) this.currentStepIndex -= 1
     },
     restart() {
-      this.currentStepIndex = 0
-      this.choices = {}
-      this.currentPoster = null
-      this.savedPoster = null
-      this.saveStatus = 'idle'
+      this.clearJourneyState()
     },
     savePoster(): JourneyPoster {
-      if (!this.isComplete || !isDraftPoster(this.currentPoster)) throw new Error('旅程尚未完成，不能保存海报')
       const auth = useAuthStore()
+      this.bindActor(auth.user?.id ?? null)
+      if (!this.isComplete || !isDraftPoster(this.currentPoster)) throw new Error('旅程尚未完成，不能保存海报')
       if (auth.user === null) throw new JourneyAuthenticationRequiredError()
       if (this.savedPoster?.userId === auth.user.id) return this.savedPoster
       if (this.savedPoster !== null) throw new Error('当前结果已由其他账户保存，请重新开始')
@@ -276,7 +337,18 @@ export const useJourneyStore = defineStore('journey', {
         return existing
       }
 
-      const poster: JourneyPoster = { ...this.currentPoster, userId: auth.user.id }
+      const poster: JourneyPoster = {
+        id: this.currentPoster.id,
+        userId: auth.user.id,
+        recipe: {
+          id: expectedRecipe.id,
+          name: expectedRecipe.name,
+          ingredients: [...expectedRecipe.ingredients],
+          description: expectedRecipe.description,
+        },
+        code: this.currentPoster.code,
+        createdAt: this.currentPoster.createdAt,
+      }
       storage.postersByUser[auth.user.id] = [...userPosters, poster]
       window.localStorage.setItem(JOURNEY_POSTER_STORAGE_KEY, JSON.stringify(storage))
       this.currentPoster = poster

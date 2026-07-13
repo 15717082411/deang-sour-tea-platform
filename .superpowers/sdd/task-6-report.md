@@ -11,7 +11,7 @@
 - 游客可完整完成流程，但保存时只跳转 `/login?redirect=/journey`，不写海报存储；同一 SPA 会话返回后保留当前结果。
 - 登录用户保存到独立版本化 key `deang-sour-tea:journey-posters:v1`，数据按 `userId` 分区，只持久化 `JourneyPoster` 必要字段，不存角色或完整用户对象。
 - 同一轮保存幂等并返回同一 poster/code；重新开始后再次完成会生成新 poster/code。store 提供当前用户范围内的 `listPosters()` 与 `loadPoster(id)`，供后续个人中心复用。
-- 存储读取执行运行时结构校验；JSON、版本、用户分区或海报结构损坏时安全恢复为空，并可由下一次合法保存覆盖。
+- 存储读取执行运行时结构校验和白名单规范化；损坏分区或记录局部丢弃，其他合法用户数据继续可用，并可由下一次合法保存覆盖为干净结构。
 
 ## TDD 证据
 
@@ -59,3 +59,44 @@
 ## 提交
 
 - 提交信息：`Add interactive sour tea journey`
+
+## 独立复核修复（2026-07-13）
+
+### 根因
+
+- journey store 没有记录当前内存旅程归属，页面也未监听认证用户变化；A 的已保存结果可能在切换 B 后继续显示，显示名则来自 B。
+- 存储解析遇到一个坏分区就清空整库，并直接保留 JSON 解析对象；保存时 spread 当前海报，伪造的角色、用户或未知嵌套字段可能再次序列化。
+- 保存成功区链接到仍为 `PendingPage` 的 `/booking`，形成未上线能力的死操作。
+
+### RED
+
+首次新增复核测试后运行 `npm test -- src/tests/journey`：退出码 1，28 项中 9 项失败。失败覆盖缺失 `bindActor`、页面没有绑定状态、额外字段未清洗、坏分区拖垮合法分区、非法业务 ID/日期未局部过滤，以及 booking-action 仍存在。
+
+业务 ID 兼容性补充测试首次运行：退出码 1。大小写混合且 sequence 超过四位的 `createBusinessId` 兼容格式被原正则错误丢弃。
+
+分区去重补充测试首次运行：退出码 1。大小写不同的同一 code 被保留为两条，且跨分区共享去重集合会让 A 分区记录遮蔽 B 的合法记录。
+
+### GREEN
+
+- 新增 `boundUserId` 三态绑定与 `bindActor(userId)`：`undefined` 为未绑定，`null` 为游客，字符串为登录用户。
+- 仅允许完整、未保存的游客 draft 在 `null → userId` 时保留；退出、跨账户和其他 actor 变化统一清空选择、结果与保存状态。
+- `JourneyPage` 使用 immediate watch 绑定 `auth.user?.id`；`savePoster()` 自身再次绑定和校验，页面未挂载期间发生账户变化也不会泄漏旧结果。
+- 存储记录逐条规范化，只重建 `id`、`userId`、`recipe`、`code`、`createdAt`；recipe 从 canonical 配方重建，保存路径逐字段构造，不使用 spread。
+- poster id/code 按 `createBusinessId` 兼容格式校验，createdAt 必须是可解析且规范的 ISO 字符串；坏分区和坏记录局部丢弃，每个用户分区内按大小写归一后的 id/code 去重。
+- 删除 `CalendarDays`、“预约工坊”链接和未使用样式；成功说明保留，不再提供指向 PendingPage 的动作。
+- `npm test -- src/tests/journey`：2 个测试文件、30 个测试通过。
+- `npm test`：12 个测试文件、122 个测试通过。
+- `npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check`：全部通过。
+
+### 修复文件
+
+- `frontend/src/stores/journey.ts`
+- `frontend/src/pages/journey/JourneyPage.vue`
+- `frontend/src/styles/journey.css`
+- `frontend/src/tests/journey/recipe.spec.ts`
+- `frontend/src/tests/journey/JourneyPage.spec.ts`
+- `.superpowers/sdd/task-6-report.md`
+
+### 修复提交
+
+- 提交信息：`fix: isolate journey posters by account`
