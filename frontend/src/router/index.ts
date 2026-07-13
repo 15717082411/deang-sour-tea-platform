@@ -22,11 +22,11 @@ declare module 'vue-router' {
 const PendingPage = { template: '<main class="route-placeholder"><h1>内容准备中</h1></main>' }
 
 const publicRoutes: RouteRecordRaw[] = [
-  { path: '', name: 'home', component: PendingPage },
-  { path: 'culture', name: 'culture', component: PendingPage },
-  { path: 'culture/:slug', name: 'culture-detail', component: PendingPage },
-  { path: 'craft', name: 'craft', component: PendingPage },
-  { path: 'stories', name: 'stories', component: PendingPage },
+  { path: '', name: 'home', component: () => import('../pages/public/HomePage.vue') },
+  { path: 'culture', name: 'culture', component: () => import('../pages/public/CultureIndexPage.vue') },
+  { path: 'culture/:slug', name: 'culture-detail', component: () => import('../pages/public/CultureDetailPage.vue') },
+  { path: 'craft', name: 'craft', component: () => import('../pages/public/CraftPage.vue') },
+  { path: 'stories', name: 'stories', component: () => import('../pages/public/StoriesPage.vue') },
   { path: 'journey', name: 'journey', component: PendingPage },
   { path: 'shop', name: 'shop', component: PendingPage },
   { path: 'shop/:id', name: 'product-detail', component: PendingPage },

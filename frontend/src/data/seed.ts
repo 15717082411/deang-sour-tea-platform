@@ -22,8 +22,8 @@ export interface DemoData {
   merchantApplications: MerchantApplication[]
 }
 
-export const DEMO_STORAGE_KEY = 'deang-sour-tea:v3'
-export const DEMO_DATA_VERSION = 3
+export const DEMO_STORAGE_KEY = 'deang-sour-tea:v4'
+export const DEMO_DATA_VERSION = 4
 
 const seedTimestamp = '2026-07-13T00:00:00.000Z'
 
@@ -37,19 +37,71 @@ export function createSeedData(): DemoData {
     passwords: { 'user-demo': 'Demo123!', 'merchant-demo': 'Demo123!', 'admin-demo': 'Demo123!' },
     sessions: {},
     products: [
-      { id: 'product-tasting', merchantId: 'merchant-demo-shop', name: '45天发酵酸茶体验装', category: '体验装', priceCents: 5900, stock: 80, sales: 1, description: '微酸回甘的入门体验装。', image: '/images/product-tasting.jpg', status: 'APPROVED' },
-      { id: 'product-gift', merchantId: 'merchant-demo-shop', name: '德昂古树酸茶礼盒', category: '酸茶礼盒', priceCents: 16800, stock: 36, sales: 1, description: '适合馈赠的古树酸茶礼盒。', image: '/images/product-gift.jpg', status: 'APPROVED' },
+      { id: 'product-tasting', merchantId: 'merchant-demo-shop', name: '45天发酵酸茶体验装', category: '体验装', priceCents: 5900, stock: 80, sales: 1, description: '微酸回甘的入门体验装。', image: '/images/product-tasting.webp', status: 'APPROVED' },
+      { id: 'product-gift', merchantId: 'merchant-demo-shop', name: '德昂古树酸茶礼盒', category: '酸茶礼盒', priceCents: 16800, stock: 36, sales: 1, description: '适合馈赠的古树酸茶礼盒。', image: '/images/product-gift.webp', status: 'APPROVED' },
       { id: 'product-pending', merchantId: 'merchant-demo-shop', name: '茶魂守护人纪念币', category: '文创周边', priceCents: 3900, stock: 120, sales: 0, description: '等待审核的文创周边。', image: '/images/product-coin.jpg', status: 'PENDING' },
     ],
     contents: [
-      { id: 'content-about', slug: 'what-is-sour-tea', title: '德昂族酸茶是什么', category: '酸茶科普', summary: '介绍酸茶的来源与风味。', body: '德昂族酸茶是围绕古法制茶经验形成的非遗体验核心内容。', cover: '/images/content-about.jpg', sources: [], published: true },
-      { id: 'content-craft', slug: 'fermentation-craft', title: '杀青、揉捻与45天发酵', category: '制作技艺', summary: '把手工经验拆解为三步。', body: '平台将杀青、揉捻和发酵拆解为互动与线下工坊体验。', cover: '/images/content-craft.jpg', sources: [], published: true },
+      {
+        id: 'content-about',
+        slug: 'what-is-sour-tea',
+        title: '德昂族酸茶是什么',
+        category: '酸茶科普',
+        summary: '从国家级非遗名录与公开资料认识德昂族酸茶的制作、食用和饮用方式。',
+        body: '德昂族酸茶制作技艺项目编号为VIII-268，于2021年列入第五批国家级非物质文化遗产代表性项目名录，主要分布于云南省德宏傣族景颇族自治州芒市，保护单位为芒市文化馆。\n\n公开材料记录的原料为大叶种鲜叶。制作过程包括热处理、揉捻、厌氧发酵、舂捣、成形和干燥等环节；成品可分为食用的湿茶与冲泡的干茶。\n\n德昂族酸茶是本专题的唯一文化对象。页面中的项目原创视觉用于解释手艺场景，不作为历史档案或具体人物身份的证明。',
+        cover: '/images/hero-sour-tea.webp',
+        sources: [
+          {
+            title: '德昂族酸茶制作技艺',
+            publisher: '中国非物质文化遗产网·中国非物质文化遗产数字博物馆',
+            url: 'https://www.ihchina.cn/project_details/23582/',
+            claim: '项目编号VIII-268；2021年列入第五批国家级非物质文化遗产代表性项目名录；主要分布于德宏州芒市，保护单位为芒市文化馆；以大叶种茶为原料，记录热处理、揉捻、厌氧发酵、舂捣、成形和干燥等环节；湿茶用于食用，干茶用于冲泡，二者发酵时长存在差异。',
+          },
+          {
+            title: 'Traditional tea processing techniques and associated social practices in China',
+            publisher: 'UNESCO Intangible Cultural Heritage',
+            url: 'https://ich.unesco.org/en/RL/traditional-tea-processing-techniques-and-associated-social-practices-in-china-01884?RL=01884',
+            claim: '中国传统制茶技艺及其相关习俗于2022年列入人类非物质文化遗产代表作名录；相关知识与实践涵盖茶园管理、采摘、手工加工、饮用与分享，并通过家庭和师徒方式传承。',
+          },
+          {
+            title: '德宏州德昂酸茶高质量发展三年行动计划（2025—2027年）',
+            publisher: '德宏州人民政府办公室',
+            url: 'https://www.dh.gov.cn/Web/_F0_0_67EWL4TR8A9F3B4052C940E6BE.htm',
+            claim: '地方公开行动计划提出代表性传承人培养、工坊与培训、公众体验点建设和非遗宣传推广等工作。',
+          },
+        ],
+        published: true,
+      },
+      {
+        id: 'content-craft',
+        slug: 'fermentation-craft',
+        title: '从鲜叶到酸茶：工艺与时间',
+        category: '制作技艺',
+        summary: '沿着摊放、蒸制、揉捻、密封发酵与湿食或干制的路径，理解不同用途对应的时间差异。',
+        body: '云南省农业农村厅公开材料记录了一条具体工艺路径：鲜叶在避开阳光直射的竹席或竹盘中摊放，随后洗叶、蒸制、冷却和揉捻，再装入竹筒或竹篮，密封捆扎后置于坑或地窖中发酵50—70天。\n\n发酵周期不能被写成唯一固定值。国家级非遗项目资料同时记录，食用湿茶发酵约2个月；用于冲泡的干茶需要经过更长时间发酵，再舂制、成形和干燥。材料所述工艺、用途与时间口径不同，应并列理解。\n\n这些公开记录说明的是制作技艺与食用方式，不构成医疗、保健或疾病治疗建议。',
+        cover: '/images/craft-fermentation.webp',
+        sources: [
+          {
+            title: '德昂族酸茶制作技艺',
+            publisher: '云南省农业农村厅',
+            url: 'https://nync.yn.gov.cn/html/2025/yzycfycj_0407/1418142.html',
+            claim: '鲜叶避开阳光直射在竹席或竹盘中摊放；经洗叶、蒸制、冷却、揉捻后装入竹筒或竹篮并密封捆扎；坑或地窖发酵记录为50—70天；成品可湿食，也可干制后冲泡。',
+          },
+          {
+            title: '德昂族酸茶制作技艺',
+            publisher: '中国非物质文化遗产网·中国非物质文化遗产数字博物馆',
+            url: 'https://www.ihchina.cn/project_details/23582/',
+            claim: '公开资料区分食用湿茶与饮用干茶：食用湿茶约发酵2个月，饮用干茶发酵时间更长，之后还需舂制、成形和干燥。',
+          },
+        ],
+        published: true,
+      },
     ],
     carts: {},
     orders: [
       {
         id: 'order-shipped', orderNo: 'DST-20260713-001', userId: 'user-demo', merchantId: 'merchant-demo-shop',
-        lines: [{ productId: 'product-tasting', productName: '45天发酵酸茶体验装', image: '/images/product-tasting.jpg', quantity: 1, unitPriceCents: 5900 }],
+        lines: [{ productId: 'product-tasting', productName: '45天发酵酸茶体验装', image: '/images/product-tasting.webp', quantity: 1, unitPriceCents: 5900 }],
         totalCents: 5900, status: 'SHIPPED', contact: { recipient: '体验用户', phone: '13800138000', address: '云南省德宏州芒市酸茶路 1 号' },
         timeline: [
           { status: 'PENDING_PAYMENT', label: '订单已创建', at: seedTimestamp },
@@ -59,7 +111,7 @@ export function createSeedData(): DemoData {
       },
       {
         id: 'order-after-sale', orderNo: 'DST-20260713-002', userId: 'user-demo', merchantId: 'merchant-demo-shop',
-        lines: [{ productId: 'product-gift', productName: '德昂古树酸茶礼盒', image: '/images/product-gift.jpg', quantity: 1, unitPriceCents: 16800 }],
+        lines: [{ productId: 'product-gift', productName: '德昂古树酸茶礼盒', image: '/images/product-gift.webp', quantity: 1, unitPriceCents: 16800 }],
         totalCents: 16800, status: 'AFTER_SALE_REQUESTED', contact: { recipient: '体验用户', phone: '13800138000', address: '云南省德宏州芒市酸茶路 1 号' },
         timeline: [
           { status: 'PENDING_PAYMENT', label: '订单已创建', at: seedTimestamp },

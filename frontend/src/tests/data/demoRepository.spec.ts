@@ -249,11 +249,11 @@ describe('demo repository', () => {
 
     const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
     await repo.saveCart(user.user.id, [{ productId: 'product-tasting', quantity: 1, unitPriceCents: 5900 }])
-    expect(JSON.parse(storage.getItem('deang-sour-tea:v3') ?? '{}').version).toBe(3)
+    expect(JSON.parse(storage.getItem('deang-sour-tea:v4') ?? '{}').version).toBe(4)
 
     await repo.reset()
     expect(await repo.getCart(user.user.id)).toEqual([])
-    expect(JSON.parse(storage.getItem('deang-sour-tea:v3') ?? '{}').version).toBe(3)
+    expect(JSON.parse(storage.getItem('deang-sour-tea:v4') ?? '{}').version).toBe(4)
   })
 
   it('seeds every later-task defense scenario with correct access and status', async () => {
