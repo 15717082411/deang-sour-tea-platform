@@ -78,7 +78,8 @@ export function createAppRouter(pinia: Pinia) {
     await auth.rehydrate()
     if (to.meta.requiresAuth !== true) return true
     if (!auth.isAuthenticated) return { name: 'login', query: { redirect: to.fullPath } }
-    if (to.meta.merchantApproved === true && auth.user?.merchantStatus !== 'APPROVED') return { name: 'merchant-apply' }
+    const isMerchantApplicant = auth.user?.role === 'USER' || auth.user?.role === 'MERCHANT'
+    if (to.meta.merchantApproved === true && isMerchantApplicant && auth.user?.merchantStatus !== 'APPROVED') return { name: 'merchant-apply' }
     return auth.canAccess(to) ? true : { name: 'forbidden' }
   })
   return router

@@ -32,13 +32,40 @@ describe('route guards', () => {
     expect(router.currentRoute.value.path).toBe('/403')
   })
 
-  it('sends a pending merchant applicant to the application status route', async () => {
+  it('sends a PENDING USER merchant applicant to the application status route', async () => {
     const { router, auth } = createRouterContext()
     await auth.login({ username: 'user_demo', password: 'Demo123!' })
 
     await router.push('/merchant')
 
     expect(router.currentRoute.value.path).toBe('/merchant/apply')
+  })
+
+  it('sends a NONE USER merchant applicant to the application status route', async () => {
+    const { router, auth } = createRouterContext()
+    await auth.register({ username: 'none_user', password: 'Demo123!', phone: '13900139000' })
+
+    await router.push('/merchant')
+
+    expect(router.currentRoute.value.path).toBe('/merchant/apply')
+  })
+
+  it('denies an ADMIN access to the merchant workspace', async () => {
+    const { router, auth } = createRouterContext()
+    await auth.login({ username: 'admin_demo', password: 'Demo123!' })
+
+    await router.push('/merchant')
+
+    expect(router.currentRoute.value.path).toBe('/403')
+  })
+
+  it('allows an approved MERCHANT to enter the merchant workspace', async () => {
+    const { router, auth } = createRouterContext()
+    await auth.login({ username: 'merchant_demo', password: 'Demo123!' })
+
+    await router.push('/merchant')
+
+    expect(router.currentRoute.value.path).toBe('/merchant')
   })
 
   it('allows an ADMIN to enter the administrator workspace', async () => {

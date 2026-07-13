@@ -137,3 +137,57 @@ exit 0
 - Valid internal redirects remain accepted when they begin with one `/`, are not protocol-relative, and contain no backslash.
 - Formatting changes are restricted to the Task 4 Vue files named in the lint output; the Task 3 source edit removes only the two confirmed unused type imports.
 - `git diff --check` completed with no output.
+
+## Re-review Blocker Remediation (2026-07-13)
+
+### RED
+
+Added merchant-workspace authorization coverage for an ADMIN, a registered `USER/NONE`, and an approved `MERCHANT`; the existing `USER/PENDING` case remains covered.
+
+```text
+npm test -- src/tests/router/guards.spec.ts
+Test Files  1 failed (1)
+Tests  1 failed | 16 passed (17)
+```
+
+The ADMIN regression reproduced the blocker:
+
+```text
+expected '/merchant/apply' to be '/403'
+Expected: "/403"
+Received: "/merchant/apply"
+```
+
+### GREEN And Focused Test
+
+Restricted the merchant application/status redirect to `USER` and `MERCHANT` actors. Other roles continue to flow through `auth.canAccess(to)`, which applies the route role metadata and returns the forbidden route.
+
+```text
+npm test -- src/tests/router/guards.spec.ts
+Test Files  1 passed (1)
+Tests  17 passed (17)
+```
+
+### Full Lint And Typecheck
+
+```text
+npm run lint
+> eslint .
+exit 0
+
+npm run typecheck
+> vue-tsc -b --force
+exit 0
+```
+
+### Changed Files
+
+- `.superpowers/sdd/task-4-report.md`
+- `frontend/src/router/index.ts`
+- `frontend/src/tests/router/guards.spec.ts`
+
+### Self-Review
+
+- `ADMIN/NONE` receives `/403` for `/merchant`; it cannot enter the merchant application/status flow.
+- `USER/PENDING` and `USER/NONE` receive `/merchant/apply`; `MERCHANT/APPROVED` reaches `/merchant`.
+- The existing guest checkout redirect, USER admin denial, redirect-sanitization tests, pending merchant behavior, lint, and typecheck remain covered by the focused suite and final checks.
