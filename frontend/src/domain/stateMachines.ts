@@ -48,13 +48,13 @@ function transition<State extends string>(
   event: string,
   transitions: TransitionMap<State>,
 ): State {
-  const nextState = transitions[state][event]
+  const stateTransitions = transitions[state]
 
-  if (nextState === undefined) {
+  if (stateTransitions === undefined || !Object.prototype.hasOwnProperty.call(stateTransitions, event)) {
     throw new DomainTransitionError(machine, state, event)
   }
 
-  return nextState
+  return stateTransitions[event] as State
 }
 
 export function transitionOrder(status: OrderStatus, event: string): OrderStatus {

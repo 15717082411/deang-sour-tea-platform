@@ -5,6 +5,7 @@ import {
   transitionOrder,
   transitionProduct,
 } from '../../domain/stateMachines'
+import type { OrderStatus } from '../../domain/types'
 
 describe('domain state machines', () => {
   it('transitions an order through payment, fulfilment, and completion', () => {
@@ -28,6 +29,11 @@ describe('domain state machines', () => {
   it('rejects invalid order transitions with the domain error', () => {
     expect(() => transitionOrder('PENDING_PAYMENT', 'SHIP')).toThrow('非法订单状态转换')
     expect(() => transitionOrder('COMPLETED', 'COMPLETE')).toThrow(DomainTransitionError)
+  })
+
+  it('rejects unknown order states and events with the domain error', () => {
+    expect(() => transitionOrder('UNKNOWN' as OrderStatus, 'PAY_SUCCESS')).toThrow(DomainTransitionError)
+    expect(() => transitionOrder('PENDING_PAYMENT', 'UNKNOWN_EVENT')).toThrow(DomainTransitionError)
   })
 
   it('transitions a product through review and resubmission', () => {

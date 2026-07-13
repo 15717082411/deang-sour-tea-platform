@@ -19,6 +19,25 @@ describe('calculateCartTotal', () => {
   it('returns zero for an empty cart', () => {
     expect(calculateCartTotal([])).toBe(0)
   })
+
+  it.each([
+    { unitPriceCents: 12.5, quantity: 1 },
+    { unitPriceCents: Number.MAX_SAFE_INTEGER + 1, quantity: 1 },
+    { unitPriceCents: 100, quantity: 1.5 },
+    { unitPriceCents: 100, quantity: 0 },
+    { unitPriceCents: 100, quantity: -1 },
+  ])('rejects cart lines with invalid monetary values', (line) => {
+    expect(() => calculateCartTotal([line])).toThrow(RangeError)
+  })
+
+  it('rejects cart totals outside the safe integer range', () => {
+    expect(() =>
+      calculateCartTotal([
+        { unitPriceCents: Number.MAX_SAFE_INTEGER, quantity: 1 },
+        { unitPriceCents: 1, quantity: 1 },
+      ]),
+    ).toThrow(RangeError)
+  })
 })
 
 describe('domain utility primitives', () => {
