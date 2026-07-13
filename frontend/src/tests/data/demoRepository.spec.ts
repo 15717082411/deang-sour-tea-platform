@@ -28,6 +28,7 @@ const merchantApplicationInput: MerchantApplicationInput = {
   contact: '13800138003',
   location: '云南省德宏州',
   introduction: '用于商家申请授权测试。',
+  agreementAccepted: true,
 }
 
 const actorFor = (user: { id: string; role: Actor['role']; merchantId?: string }): Actor => ({
@@ -70,7 +71,7 @@ const createV3Data = (): DemoData => {
 async function createApprovedSecondMerchantProduct(repo: PlatformRepository) {
   const applicant = await repo.register({ username: 'other-merchant', password: 'Demo123!', phone: '13800138003' })
   const application = await repo.applyMerchant(actorFor(applicant.user), {
-    shopName: '另一家酸茶工坊', contact: '13800138003', location: '云南省德宏州', introduction: '用于商家归属测试。',
+    shopName: '另一家酸茶工坊', contact: '13800138003', location: '云南省德宏州', introduction: '用于商家归属测试。', agreementAccepted: true,
   })
   const admin = await repo.login({ username: 'admin_demo', password: 'Demo123!' })
   const adminActor = { userId: admin.user.id, role: admin.user.role } as const

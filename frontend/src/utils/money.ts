@@ -25,3 +25,8 @@ export function calculateCartTotal(
     return nextTotal
   }, 0)
 }
+
+export function formatMoney(cents: number): string {
+  assertSafeInteger(cents, '金额（分）')
+  return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(cents / 100)
+}

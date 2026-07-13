@@ -30,6 +30,7 @@ export interface MerchantApplication {
   introduction: string
   status: Exclude<MerchantStatus, 'NONE'>
   reviewReason?: string
+  agreementAcceptedAt?: string
   createdAt: string
 }
 
@@ -192,6 +193,7 @@ export interface MerchantApplicationInput {
   contact: string
   location: string
   introduction: string
+  agreementAccepted: boolean
 }
 
 export interface ReviewDecision {

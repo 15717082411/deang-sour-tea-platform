@@ -40,7 +40,7 @@ const publicRoutes: RouteRecordRaw[] = [
 
 const routes: RouteRecordRaw[] = [
   { path: '/', component: PublicLayout, children: publicRoutes },
-  { path: '/merchant/apply', name: 'merchant-apply', component: PendingPage, meta: { requiresAuth: true, roles: ['USER', 'MERCHANT'] } },
+  { path: '/merchant/apply', name: 'merchant-apply', component: () => import('../pages/merchant/MerchantApplyPage.vue'), meta: { requiresAuth: true, roles: ['USER', 'MERCHANT'] } },
   {
     path: '/account', component: AccountLayout, meta: { requiresAuth: true, roles: ['USER'] }, children: [
       { path: '', name: 'account', component: () => import('../pages/account/AccountOverviewPage.vue'), meta: { roles: ['USER'] } },
@@ -53,10 +53,12 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/merchant', component: WorkspaceLayout, props: { kind: 'merchant' }, meta: { requiresAuth: true, roles: ['MERCHANT'], merchantApproved: true }, children: [
-      { path: '', name: 'merchant', component: PendingPage },
-      { path: 'products', name: 'merchant-products', component: PendingPage },
-      { path: 'orders', name: 'merchant-orders', component: PendingPage },
-      { path: 'after-sales', name: 'merchant-after-sales', component: PendingPage },
+      { path: '', name: 'merchant', component: () => import('../pages/merchant/MerchantDashboardPage.vue') },
+      { path: 'products', name: 'merchant-products', component: () => import('../pages/merchant/MerchantProductsPage.vue') },
+      { path: 'products/new', name: 'merchant-product-new', component: () => import('../pages/merchant/MerchantProductEditPage.vue') },
+      { path: 'products/:id/edit', name: 'merchant-product-edit', component: () => import('../pages/merchant/MerchantProductEditPage.vue') },
+      { path: 'orders', name: 'merchant-orders', component: () => import('../pages/merchant/MerchantOrdersPage.vue') },
+      { path: 'after-sales', name: 'merchant-after-sales', component: () => import('../pages/merchant/MerchantAfterSalesPage.vue') },
     ],
   },
   {

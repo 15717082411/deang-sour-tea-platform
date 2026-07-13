@@ -497,12 +497,29 @@ export function createDemoRepository(storage: Storage, clock: DemoClock = () => 
       const user = actorRole(actor, 'USER')
       if (user.merchantStatus === 'PENDING' || data.merchantApplications.some((application) => application.userId === user.id && application.status === 'PENDING')) throw new Error('已有待审核申请')
       if (user.merchantStatus === 'APPROVED') throw new Error('已是商家')
+      if (input.agreementAccepted !== true) throw new Error('请阅读并同意商家入驻协议')
       if (!input.shopName.trim() || !input.contact.trim() || !input.location.trim() || !input.introduction.trim()) throw new Error('申请信息无效')
-      const application: MerchantApplication = { id: createBusinessId('MERCHANT_APPLICATION'), userId: user.id, ...clone(input), status: 'PENDING', createdAt: now() }
+      const createdAt = now()
+      const application: MerchantApplication = {
+        id: createBusinessId('MERCHANT_APPLICATION'),
+        userId: user.id,
+        shopName: input.shopName.trim(),
+        contact: input.contact.trim(),
+        location: input.location.trim(),
+        introduction: input.introduction.trim(),
+        status: 'PENDING',
+        agreementAcceptedAt: createdAt,
+        createdAt,
+      }
       user.merchantStatus = 'PENDING'
       data.merchantApplications.push(application)
       persist()
       return clone(application)
+    },
+    async listMerchantProducts(actor) {
+      refresh()
+      const owner = merchantId(actor)
+      return data.products.filter((product) => product.merchantId === owner).map(productForRead)
     },
     async listMerchantApplications(actor) { refresh(); actorRole(actor, 'ADMIN'); return clone(data.merchantApplications) },
     async reviewMerchant(actor, applicationId, decision) {
@@ -522,9 +539,12 @@ export function createDemoRepository(storage: Storage, clock: DemoClock = () => 
       refresh()
       const owner = merchantId(actor)
       const ownerName = userById(actor.userId).displayName
-      if (!input.name.trim() || !input.category.trim() || !input.description.trim() || !input.image.trim() || !Number.isSafeInteger(input.priceCents) || input.priceCents < 0 || !Number.isSafeInteger(input.stock) || input.stock < 0) throw new Error('商品信息无效')
+      if (!input.name.trim() || !input.category.trim() || !input.description.trim() || !input.image.trim()) throw new Error('商品信息无效')
+      if (!Number.isSafeInteger(input.priceCents) || input.priceCents <= 0) throw new Error('商品价格必须大于 0')
+      if (!Number.isSafeInteger(input.stock) || input.stock < 0) throw new Error('商品库存无效')
       const existing = input.id === undefined ? undefined : productById(input.id)
       if (existing !== undefined && existing.merchantId !== owner) throw new Error('无权编辑该商品')
+      if (existing !== undefined && !['DRAFT', 'REJECTED'].includes(existing.status)) throw new Error('当前商品状态不可编辑')
       const product: Product = existing ?? {
         id: createBusinessId('PRODUCT'),
         merchantId: owner,

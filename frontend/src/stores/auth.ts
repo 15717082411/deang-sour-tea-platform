@@ -5,6 +5,7 @@ import { clearGuestCart, readGuestCart } from '../utils/guestCart'
 import { useAppStore } from './app'
 import { useAfterSalesStore } from './afterSales'
 import { useBookingsStore } from './bookings'
+import { useMerchantStore } from './merchant'
 import { useOrdersStore } from './orders'
 
 export const SESSION_STORAGE_KEY = 'deang-sour-tea:session'
@@ -57,6 +58,7 @@ export const useAuthStore = defineStore('auth', {
         useOrdersStore().resetForActorChange()
         useBookingsStore().resetForActorChange()
         useAfterSalesStore().resetForActorChange()
+        useMerchantStore().resetForActorChange()
       }
       this.user = session.user
       this.sessionId = session.sessionId
@@ -117,6 +119,7 @@ export const useAuthStore = defineStore('auth', {
         useOrdersStore().resetForActorChange()
         useBookingsStore().resetForActorChange()
         useAfterSalesStore().resetForActorChange()
+        useMerchantStore().resetForActorChange()
         this.user = null
         this.sessionId = null
         this.hydrated = true

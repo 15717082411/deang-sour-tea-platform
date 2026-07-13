@@ -134,7 +134,7 @@ export function createSeedData(): DemoData {
       timeline: [{ status: 'PENDING', label: '预约已提交', at: seedTimestamp }],
       createdAt: seedTimestamp,
     }],
-    merchantApplications: [{ id: 'merchant-application-pending', userId: 'user-demo', shopName: '山野酸茶小铺', contact: '13800138000', location: '云南省德宏州芒市', introduction: '专注德昂族酸茶文化体验。', status: 'PENDING', createdAt: seedTimestamp }],
+    merchantApplications: [{ id: 'merchant-application-pending', userId: 'user-demo', shopName: '山野酸茶小铺', contact: '13800138000', location: '云南省德宏州芒市', introduction: '专注德昂族酸茶文化体验。', status: 'PENDING', agreementAcceptedAt: seedTimestamp, createdAt: seedTimestamp }],
   }
 }
 
