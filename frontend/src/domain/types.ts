@@ -56,6 +56,7 @@ export interface ContentArticle {
 export interface Product {
   id: string
   merchantId: string
+  merchantName?: string
   name: string
   category: string
   priceCents: number
@@ -96,6 +97,7 @@ export interface Order {
   contact: OrderContact
   timeline: TimelineEvent[]
   createdAt: string
+  idempotencyKey?: string
 }
 
 export interface AfterSale {

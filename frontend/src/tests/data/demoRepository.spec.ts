@@ -189,10 +189,13 @@ describe('demo repository', () => {
     const migrated = JSON.parse(storage.getItem(DEMO_STORAGE_KEY) ?? '{}') as { version: number; data: typeof legacy }
 
     await expect(repo.validateSession(customUser.id, 'SESSION-custom')).resolves.toMatchObject({ user: customUser })
-    await expect(repo.getCart(customUser.id)).resolves.toEqual(legacy.carts[customUser.id])
+    await expect(repo.getCart(actorFor(customUser))).resolves.toEqual(legacy.carts[customUser.id])
     await expect(repo.listOrders(actorFor(customUser))).resolves.toContainEqual(customOrder)
     await expect(repo.listBookings(actorFor(customUser))).resolves.toContainEqual(customBooking)
-    await expect(repo.getProduct(customProduct.id)).resolves.toEqual(customProduct)
+    await expect(repo.getProduct(customProduct.id)).resolves.toMatchObject({
+      ...customProduct,
+      merchantName: '酸茶工坊',
+    })
     expect(await repo.listContents()).toContainEqual(customContent)
     expect((await repo.getContent('what-is-sour-tea')).sources.length).toBeGreaterThan(0)
     expect((await repo.getContent('fermentation-craft')).title).not.toContain('45天')
@@ -339,10 +342,11 @@ describe('demo repository', () => {
   it('registers a user and completes the payment lifecycle', async () => {
     const repo = createDemoRepository(new MemoryStorage())
     const user = await repo.register({ username: 'new-user', password: 'Demo123!', phone: '13800138000' })
-    const order = await repo.createOrder(user.user.id, [{ productId: 'product-tasting', quantity: 2 }], contact)
+    const actor = actorFor(user.user)
+    const order = await repo.createOrder(actor, [{ productId: 'product-tasting', quantity: 2 }], contact)
 
     expect(order.status).toBe('PENDING_PAYMENT')
-    expect((await repo.payOrder(order.id, 'SUCCESS')).status).toBe('PAID')
+    expect((await repo.payOrder(actor, order.id, 'SUCCESS')).status).toBe('PAID')
   })
 
   it('rejects a duplicate username and invalid registration phone', async () => {
@@ -356,18 +360,19 @@ describe('demo repository', () => {
     const repo = createDemoRepository(new MemoryStorage())
     const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
 
-    await expect(repo.createOrder(user.user.id, [{ productId: 'product-tasting', quantity: 81 }], contact)).rejects.toThrow()
+    await expect(repo.createOrder(actorFor(user.user), [{ productId: 'product-tasting', quantity: 81 }], contact)).rejects.toThrow()
   })
 
   it('only decrements stock on the first successful payment and makes repeated payment idempotent', async () => {
     const repo = createDemoRepository(new MemoryStorage())
     const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
     const before = await repo.getProduct('product-tasting')
-    const order = await repo.createOrder(user.user.id, [{ productId: before.id, quantity: 2 }], contact)
+    const actor = actorFor(user.user)
+    const order = await repo.createOrder(actor, [{ productId: before.id, quantity: 2 }], contact)
 
-    const paid = await repo.payOrder(order.id, 'SUCCESS')
+    const paid = await repo.payOrder(actor, order.id, 'SUCCESS')
     const afterFirstPayment = await repo.getProduct(before.id)
-    const paidAgain = await repo.payOrder(order.id, 'SUCCESS')
+    const paidAgain = await repo.payOrder(actor, order.id, 'SUCCESS')
     const afterRepeatedPayment = await repo.getProduct(before.id)
 
     expect(paid.status).toBe('PAID')
@@ -446,9 +451,10 @@ describe('demo repository', () => {
     const { merchant: otherMerchant, product } = await createApprovedSecondMerchantProduct(repo)
     const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
     const originalMerchant = await repo.login({ username: 'merchant_demo', password: 'Demo123!' })
-    const order = await repo.createOrder(user.user.id, [{ productId: product.id, quantity: 1 }], contact)
+    const userActor = actorFor(user.user)
+    const order = await repo.createOrder(userActor, [{ productId: product.id, quantity: 1 }], contact)
 
-    expect((await repo.payOrder(order.id, 'SUCCESS')).status).toBe('PAID')
+    expect((await repo.payOrder(userActor, order.id, 'SUCCESS')).status).toBe('PAID')
     await expect(repo.getOrder({
       userId: originalMerchant.user.id,
       role: 'MERCHANT',
@@ -460,20 +466,23 @@ describe('demo repository', () => {
     const repo = createDemoRepository(new MemoryStorage())
     const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
     const merchant = await repo.login({ username: 'merchant_demo', password: 'Demo123!' })
-    const order = await repo.createOrder(user.user.id, [{ productId: 'product-tasting', quantity: 1 }], contact)
-    await repo.payOrder(order.id, 'SUCCESS')
+    const userActor = actorFor(user.user)
+    const order = await repo.createOrder(userActor, [{ productId: 'product-tasting', quantity: 1 }], contact)
+    await repo.payOrder(userActor, order.id, 'SUCCESS')
 
     await expect(repo.getOrder(actorFor(merchant.user), order.id)).resolves.toMatchObject({ id: order.id, merchantId: merchant.user.merchantId })
   })
 
   it('rejects forged roles before they can receive orders', async () => {
     const repo = createDemoRepository(new MemoryStorage())
+    const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
     const merchant = await repo.login({ username: 'merchant_demo', password: 'Demo123!' })
     const merchantActor = { userId: merchant.user.id, role: merchant.user.role, merchantId: merchant.user.merchantId } as const
     const forgedUserActor = { userId: merchant.user.id, role: 'USER' } as const
-    const shippedOrder = await repo.createOrder(merchant.user.id, [{ productId: 'product-tasting', quantity: 1 }], contact)
+    const userActor = actorFor(user.user)
+    const shippedOrder = await repo.createOrder(userActor, [{ productId: 'product-tasting', quantity: 1 }], contact)
 
-    await repo.payOrder(shippedOrder.id, 'SUCCESS')
+    await repo.payOrder(userActor, shippedOrder.id, 'SUCCESS')
     expect((await repo.shipOrder(merchantActor, shippedOrder.id)).status).toBe('SHIPPED')
     await expect(repo.receiveOrder(forgedUserActor, shippedOrder.id)).rejects.toThrow('角色身份无效')
     expect((await repo.getOrder(merchantActor, shippedOrder.id)).status).toBe('SHIPPED')
@@ -481,12 +490,14 @@ describe('demo repository', () => {
 
   it('rejects forged roles before they can request after-sales', async () => {
     const repo = createDemoRepository(new MemoryStorage())
+    const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
     const merchant = await repo.login({ username: 'merchant_demo', password: 'Demo123!' })
     const merchantActor = { userId: merchant.user.id, role: merchant.user.role, merchantId: merchant.user.merchantId } as const
     const forgedUserActor = { userId: merchant.user.id, role: 'USER' } as const
-    const paidOrder = await repo.createOrder(merchant.user.id, [{ productId: 'product-gift', quantity: 1 }], contact)
+    const userActor = actorFor(user.user)
+    const paidOrder = await repo.createOrder(userActor, [{ productId: 'product-gift', quantity: 1 }], contact)
 
-    expect((await repo.payOrder(paidOrder.id, 'SUCCESS')).status).toBe('PAID')
+    expect((await repo.payOrder(userActor, paidOrder.id, 'SUCCESS')).status).toBe('PAID')
     await expect(repo.requestAfterSale(forgedUserActor, paidOrder.id, '伪造角色申请')).rejects.toThrow('角色身份无效')
     expect((await repo.getOrder(merchantActor, paidOrder.id)).status).toBe('PAID')
   })
@@ -494,8 +505,9 @@ describe('demo repository', () => {
   it('allows the legitimate user to request after-sale for a valid own order', async () => {
     const repo = createDemoRepository(new MemoryStorage())
     const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
-    const order = await repo.createOrder(user.user.id, [{ productId: 'product-gift', quantity: 1 }], contact)
-    await repo.payOrder(order.id, 'SUCCESS')
+    const userActor = actorFor(user.user)
+    const order = await repo.createOrder(userActor, [{ productId: 'product-gift', quantity: 1 }], contact)
+    await repo.payOrder(userActor, order.id, 'SUCCESS')
 
     await expect(repo.requestAfterSale(actorFor(user.user), order.id, '礼盒运输破损')).resolves.toMatchObject({
       orderId: order.id,
@@ -512,11 +524,12 @@ describe('demo repository', () => {
     expect((await repo.getProduct(products[0].id)).name).not.toBe('被外部修改')
 
     const user = await repo.login({ username: 'user_demo', password: 'Demo123!' })
-    await repo.saveCart(user.user.id, [{ productId: 'product-tasting', quantity: 1, unitPriceCents: 5900 }])
+    const userActor = actorFor(user.user)
+    await repo.saveCart(userActor, [{ productId: 'product-tasting', quantity: 1 }])
     expect(JSON.parse(storage.getItem('deang-sour-tea:v4') ?? '{}').version).toBe(4)
 
     await repo.reset()
-    expect(await repo.getCart(user.user.id)).toEqual([])
+    expect(await repo.getCart(userActor)).toEqual([])
     expect(JSON.parse(storage.getItem('deang-sour-tea:v4') ?? '{}').version).toBe(4)
   })
 

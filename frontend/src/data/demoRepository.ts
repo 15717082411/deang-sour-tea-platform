@@ -23,7 +23,7 @@ import { transitionAfterSale, transitionBooking, transitionOrder, transitionProd
 import { createBusinessId } from '../utils/identifiers'
 import { calculateCartTotal } from '../utils/money'
 import { isValidPhone } from '../utils/validation'
-import { RepositoryError, type OrderRequestLine, type PlatformRepository } from './repository'
+import { RepositoryError, type CartRequestLine, type PlatformRepository } from './repository'
 import {
   createSeedData,
   DEMO_DATA_VERSION,
@@ -99,6 +99,7 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
   }
 
   let data = load()
+  const refresh = (): void => { data = load() }
   const persist = (): void => storage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ version: DEMO_DATA_VERSION, data }))
   const userById = (userId: string): User => {
     const user = data.users.find((candidate) => candidate.id === userId)
@@ -125,6 +126,7 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     if (actor.role !== role) throw new Error('无权执行此操作')
     return user
   }
+  const userActor = (actor: Actor): User => actorRole(actor, 'USER')
   const merchantId = (actor: Actor): string => {
     const user = actorRole(actor, 'MERCHANT')
     if (user.merchantId === undefined || (actor.merchantId !== undefined && actor.merchantId !== user.merchantId)) throw new Error('商家身份无效')
@@ -143,11 +145,11 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     persist()
     return { sessionId, user: clone(user) }
   }
-  const validateCartLines = (lines: OrderRequestLine[], requireApproved: boolean): CartLine[] => {
+  const validateCartLines = (lines: CartRequestLine[], requireApproved: boolean): CartLine[] => {
     if (lines.length === 0) throw new Error('购物车不能为空')
     const seen = new Set<string>()
     const normalized = lines.map((line) => {
-      if (!Number.isSafeInteger(line.quantity) || line.quantity <= 0 || seen.has(line.productId)) throw new Error('购物车商品无效')
+      if (typeof line.productId !== 'string' || !line.productId.trim() || !Number.isSafeInteger(line.quantity) || line.quantity <= 0 || seen.has(line.productId)) throw new Error('购物车商品无效')
       seen.add(line.productId)
       const product = productById(line.productId)
       if (requireApproved && product.status !== 'APPROVED') throw new Error('商品不可购买')
@@ -157,14 +159,23 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
     calculateCartTotal(normalized)
     return normalized
   }
+  const productForRead = (product: Product): Product => {
+    const owner = data.users.find((user) => user.merchantId === product.merchantId)
+    return clone({ ...product, merchantName: product.merchantName ?? owner?.displayName ?? '酸茶工坊' })
+  }
+  const validateIdempotencyKey = (key: string | undefined): void => {
+    if (key !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(key)) throw new Error('幂等键格式无效')
+  }
 
   return {
     async login(input: LoginInput) {
+      refresh()
       const user = data.users.find((candidate) => candidate.username === input.username)
       if (user === undefined || data.passwords[user.id] !== input.password) throw new Error('用户名或密码错误')
       return createSession(user)
     },
     async register(input: RegisterInput) {
+      refresh()
       if (!input.username.trim() || !input.password || !isValidPhone(input.phone)) throw new Error('注册信息无效')
       if (data.users.some((user) => user.username === input.username)) throw new Error('用户名已存在')
       const user: User = { id: createBusinessId('USER'), username: input.username, displayName: input.displayName?.trim() || input.username, phone: input.phone, role: 'USER', merchantStatus: 'NONE' }
@@ -174,58 +185,99 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return createSession(user)
     },
     async validateSession(userId, sessionId) {
+      refresh()
       if (data.sessions[sessionId] !== userId) throw new Error('会话无效')
       return { sessionId, user: clone(userById(userId)) }
     },
     async logout(sessionId) {
+      refresh()
       if (data.sessions[sessionId] === undefined) return
       delete data.sessions[sessionId]
       persist()
     },
-    async getUser(userId) { return clone(userById(userId)) },
+    async getUser(userId) { refresh(); return clone(userById(userId)) },
     async listProducts(query?: ProductQuery) {
+      refresh()
       let products = data.products.filter((product) => product.status === 'APPROVED')
       if (query?.keyword) products = products.filter((product) => `${product.name}${product.description}`.includes(query.keyword!))
       if (query?.category) products = products.filter((product) => product.category === query.category)
       if (query?.inStock) products = products.filter((product) => product.stock > 0)
       if (query?.sort === 'PRICE_ASC') products = [...products].sort((a, b) => a.priceCents - b.priceCents)
       if (query?.sort === 'PRICE_DESC') products = [...products].sort((a, b) => b.priceCents - a.priceCents)
-      return clone(products)
+      return products.map(productForRead)
     },
-    async getProduct(productId) { return clone(productById(productId)) },
-    async listContents() { return clone(data.contents.filter((content) => content.published)) },
+    async getProduct(productId) { refresh(); return productForRead(productById(productId)) },
+    async listContents() { refresh(); return clone(data.contents.filter((content) => content.published)) },
     async getContent(slug) {
+      refresh()
       const content = data.contents.find((candidate) => candidate.slug === slug && candidate.published)
       if (content === undefined) throw new RepositoryError('CONTENT_NOT_FOUND', '内容不存在')
       return clone(content)
     },
-    async getCart(userId) { userById(userId); return clone(data.carts[userId] ?? []) },
-    async saveCart(userId, lines) {
-      userById(userId)
-      data.carts[userId] = lines.length === 0 ? [] : validateCartLines(lines, true)
-      persist()
-      return clone(data.carts[userId])
+    async getCart(actor) {
+      refresh()
+      const user = userActor(actor)
+      return clone(data.carts[user.id] ?? [])
     },
-    async createOrder(userId, lines, contact) {
-      userById(userId)
+    async saveCart(actor, lines) {
+      refresh()
+      const user = userActor(actor)
+      data.carts[user.id] = lines.length === 0 ? [] : validateCartLines(lines, true)
+      persist()
+      return clone(data.carts[user.id])
+    },
+    async mergeCart(actor, guestLines) {
+      refresh()
+      const user = userActor(actor)
+      const quantities = new Map<string, number>()
+      for (const line of [...(data.carts[user.id] ?? []), ...guestLines]) {
+        if (typeof line.productId !== 'string' || !line.productId.trim() || !Number.isSafeInteger(line.quantity) || line.quantity <= 0) throw new Error('购物车商品无效')
+        const product = productById(line.productId)
+        if (product.status !== 'APPROVED' || product.stock <= 0) throw new Error('商品不可购买')
+        const current = quantities.get(product.id) ?? 0
+        const combined = current + line.quantity
+        if (!Number.isSafeInteger(combined)) throw new Error('购物车商品无效')
+        quantities.set(product.id, Math.min(combined, product.stock))
+      }
+      const merged = [...quantities].map(([productId, quantity]) => {
+        const product = productById(productId)
+        return { productId, quantity, unitPriceCents: product.priceCents }
+      })
+      calculateCartTotal(merged)
+      data.carts[user.id] = merged
+      persist()
+      return clone(merged)
+    },
+    async createOrder(actor, lines, contact, idempotencyKey) {
+      refresh()
+      const user = userActor(actor)
+      validateIdempotencyKey(idempotencyKey)
+      if (idempotencyKey !== undefined) {
+        const existing = data.orders.find((order) => order.userId === user.id && order.idempotencyKey === idempotencyKey)
+        if (existing !== undefined) return clone(existing)
+      }
       if (!contact.recipient.trim() || !contact.address.trim() || !isValidPhone(contact.phone)) throw new Error('收货信息无效')
       const cartLines = validateCartLines(lines, true)
       const products = cartLines.map((line) => productById(line.productId))
       if (new Set(products.map((product) => product.merchantId)).size !== 1) throw new Error('订单仅支持单个商家')
       const orderLines: OrderLine[] = cartLines.map((line, index) => ({ ...line, productName: products[index].name, image: products[index].image }))
-      const order: Order = { id: createBusinessId('ORDER'), orderNo: createBusinessId('DST'), userId, merchantId: products[0].merchantId, lines: orderLines, totalCents: calculateCartTotal(orderLines), status: 'PENDING_PAYMENT', contact: clone(contact), timeline: [orderEvent('PENDING_PAYMENT', '订单已创建')], createdAt: now() }
+      const order: Order = { id: createBusinessId('ORDER'), orderNo: createBusinessId('DST'), userId: user.id, merchantId: products[0].merchantId, lines: orderLines, totalCents: calculateCartTotal(orderLines), status: 'PENDING_PAYMENT', contact: clone(contact), timeline: [orderEvent('PENDING_PAYMENT', '订单已创建')], createdAt: now(), ...(idempotencyKey === undefined ? {} : { idempotencyKey }) }
       data.orders.push(order)
       persist()
       return clone(order)
     },
     async listOrders(actor) {
+      refresh()
       authenticatedActor(actor)
       const orders = actor.role === 'ADMIN' ? data.orders : actor.role === 'MERCHANT' ? data.orders.filter((order) => order.merchantId === merchantId(actor)) : data.orders.filter((order) => order.userId === actor.userId)
       return clone(orders)
     },
-    async getOrder(actor, orderId) { const order = orderById(orderId); ownsOrder(actor, order); return clone(order) },
-    async payOrder(orderId, result) {
+    async getOrder(actor, orderId) { refresh(); const order = orderById(orderId); ownsOrder(actor, order); return clone(order) },
+    async payOrder(actor, orderId, result) {
+      refresh()
+      const user = userActor(actor)
       const order = orderById(orderId)
+      if (order.userId !== user.id) throw new Error('无权支付该订单')
       if (order.status === 'PAID' && result === 'SUCCESS') return clone(order)
       const event = result === 'SUCCESS' ? 'PAY_SUCCESS' : result === 'FAILURE' ? 'PAY_FAILURE' : 'CANCEL'
       const nextStatus = transitionOrder(order.status, event)
@@ -239,6 +291,7 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return clone(order)
     },
     async shipOrder(actor, orderId) {
+      refresh()
       const order = orderById(orderId)
       if (order.merchantId !== merchantId(actor)) throw new Error('无权操作该订单')
       order.status = transitionOrder(order.status, 'SHIP')
@@ -247,6 +300,7 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return clone(order)
     },
     async receiveOrder(actor, orderId) {
+      refresh()
       const order = orderById(orderId)
       const user = actorRole(actor, 'USER')
       if (user.id !== order.userId) throw new Error('无权操作该订单')
@@ -256,11 +310,13 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return clone(order)
     },
     async listAfterSales(actor) {
+      refresh()
       authenticatedActor(actor)
       const afterSales = actor.role === 'ADMIN' ? data.afterSales : actor.role === 'MERCHANT' ? data.afterSales.filter((afterSale) => afterSale.merchantId === merchantId(actor)) : data.afterSales.filter((afterSale) => afterSale.userId === actor.userId)
       return clone(afterSales)
     },
     async requestAfterSale(actor, orderId, reason) {
+      refresh()
       const order = orderById(orderId)
       const user = actorRole(actor, 'USER')
       if (user.id !== order.userId || !reason.trim()) throw new Error('无权申请售后')
@@ -273,6 +329,7 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return clone(afterSale)
     },
     async resolveAfterSale(actor, afterSaleId, decision, note) {
+      refresh()
       const afterSale = data.afterSales.find((candidate) => candidate.id === afterSaleId)
       if (afterSale === undefined) throw new Error('售后申请不存在')
       if (afterSale.merchantId !== merchantId(actor)) throw new Error('无权处理该售后')
@@ -285,11 +342,13 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return clone(afterSale)
     },
     async listBookings(actor) {
+      refresh()
       authenticatedActor(actor)
       const bookings = actor.role === 'ADMIN' || actor.role === 'MERCHANT' ? data.bookings : data.bookings.filter((booking) => booking.userId === actor.userId)
       return clone(bookings)
     },
     async createBooking(actor, input: BookingInput) {
+      refresh()
       actorRole(actor, 'USER')
       if (!input.date || !Number.isSafeInteger(input.people) || input.people <= 0 || !isValidPhone(input.phone)) throw new Error('预约信息无效')
       const booking: Booking = { id: createBusinessId('BOOKING'), userId: actor.userId, ...clone(input), code: createBusinessId('BOOK'), status: 'PENDING', createdAt: now() }
@@ -298,6 +357,7 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return clone(booking)
     },
     async cancelBooking(actor, bookingId) {
+      refresh()
       const booking = data.bookings.find((candidate) => candidate.id === bookingId)
       actorRole(actor, 'USER')
       if (booking === undefined || booking.userId !== actor.userId) throw new Error('无权取消该预约')
@@ -306,6 +366,7 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return clone(booking)
     },
     async verifyBooking(actor, code) {
+      refresh()
       merchantId(actor)
       const booking = data.bookings.find((candidate) => candidate.code === code)
       if (booking === undefined) throw new Error('预约核销码不存在')
@@ -313,8 +374,9 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       persist()
       return clone(booking)
     },
-    async getMerchantApplication(userId) { return clone([...data.merchantApplications].reverse().find((application) => application.userId === userId) ?? null) },
+    async getMerchantApplication(userId) { refresh(); return clone([...data.merchantApplications].reverse().find((application) => application.userId === userId) ?? null) },
     async applyMerchant(actor, input: MerchantApplicationInput) {
+      refresh()
       const user = actorRole(actor, 'USER')
       if (user.merchantStatus === 'PENDING' || data.merchantApplications.some((application) => application.userId === user.id && application.status === 'PENDING')) throw new Error('已有待审核申请')
       if (user.merchantStatus === 'APPROVED') throw new Error('已是商家')
@@ -325,8 +387,9 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       persist()
       return clone(application)
     },
-    async listMerchantApplications(actor) { actorRole(actor, 'ADMIN'); return clone(data.merchantApplications) },
+    async listMerchantApplications(actor) { refresh(); actorRole(actor, 'ADMIN'); return clone(data.merchantApplications) },
     async reviewMerchant(actor, applicationId, decision) {
+      refresh()
       actorRole(actor, 'ADMIN')
       const application = data.merchantApplications.find((candidate) => candidate.id === applicationId)
       if (application === undefined || application.status !== 'PENDING') throw new Error('商家申请不可审核')
@@ -339,13 +402,16 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return clone(application)
     },
     async saveProduct(actor, input: ProductDraftInput) {
+      refresh()
       const owner = merchantId(actor)
+      const ownerName = userById(actor.userId).displayName
       if (!input.name.trim() || !input.category.trim() || !input.description.trim() || !input.image.trim() || !Number.isSafeInteger(input.priceCents) || input.priceCents < 0 || !Number.isSafeInteger(input.stock) || input.stock < 0) throw new Error('商品信息无效')
       const existing = input.id === undefined ? undefined : productById(input.id)
       if (existing !== undefined && existing.merchantId !== owner) throw new Error('无权编辑该商品')
       const product: Product = existing ?? {
         id: createBusinessId('PRODUCT'),
         merchantId: owner,
+        merchantName: ownerName,
         name: input.name,
         category: input.category,
         priceCents: input.priceCents,
@@ -356,12 +422,13 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
         status: 'DRAFT',
       }
       if (existing?.status === 'REJECTED') product.status = transitionProduct(existing.status, 'EDIT')
-      Object.assign(product, clone({ name: input.name, category: input.category, priceCents: input.priceCents, stock: input.stock, description: input.description, image: input.image }))
+      Object.assign(product, clone({ merchantName: ownerName, name: input.name, category: input.category, priceCents: input.priceCents, stock: input.stock, description: input.description, image: input.image }))
       if (existing === undefined) data.products.push(product)
       persist()
       return clone(product)
     },
     async submitProduct(actor, productId) {
+      refresh()
       const product = productById(productId)
       if (product.merchantId !== merchantId(actor)) throw new Error('无权提交该商品')
       product.status = transitionProduct(product.status, 'SUBMIT')
@@ -369,6 +436,7 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return clone(product)
     },
     async reviewProduct(actor, productId, decision) {
+      refresh()
       actorRole(actor, 'ADMIN')
       const product = productById(productId)
       product.status = transitionProduct(product.status, decision.result)
@@ -377,6 +445,7 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return clone(product)
     },
     async saveContent(actor, input: ContentInput) {
+      refresh()
       actorRole(actor, 'ADMIN')
       if (!input.title.trim() || !input.slug.trim() || data.contents.some((content) => content.slug === input.slug && content.id !== input.id)) throw new Error('内容信息无效')
       const existing = input.id === undefined ? undefined : data.contents.find((content) => content.id === input.id)
@@ -388,9 +457,10 @@ export function createDemoRepository(storage: Storage): PlatformRepository {
       return clone(content)
     },
     async dashboard(actor): Promise<DashboardMetrics> {
+      refresh()
       actorRole(actor, 'ADMIN')
       return clone({ revenueCents: data.orders.filter((order) => order.status !== 'PENDING_PAYMENT' && order.status !== 'CANCELLED').reduce((total, order) => total + order.totalCents, 0), orderCount: data.orders.length, productCount: data.products.length, bookingCount: data.bookings.length, afterSaleCount: data.afterSales.length })
     },
-    async reset() { data = createSeedData(); persist() },
+    async reset() { refresh(); data = createSeedData(); persist() },
   }
 }

@@ -21,7 +21,7 @@ import type {
   User,
 } from '../domain/types'
 
-export type OrderRequestLine = Pick<CartLine, 'productId' | 'quantity'>
+export type CartRequestLine = Pick<CartLine, 'productId' | 'quantity'>
 export type RepositoryErrorCode = 'CONTENT_NOT_FOUND'
 
 export class RepositoryError extends Error {
@@ -48,12 +48,13 @@ export interface PlatformRepository {
   getProduct(productId: string): Promise<Product>
   listContents(): Promise<ContentArticle[]>
   getContent(slug: string): Promise<ContentArticle>
-  getCart(userId: string): Promise<CartLine[]>
-  saveCart(userId: string, lines: CartLine[]): Promise<CartLine[]>
-  createOrder(userId: string, lines: OrderRequestLine[], contact: OrderContact): Promise<Order>
+  getCart(actor: Actor): Promise<CartLine[]>
+  saveCart(actor: Actor, lines: CartRequestLine[]): Promise<CartLine[]>
+  mergeCart(actor: Actor, guestLines: CartRequestLine[]): Promise<CartLine[]>
+  createOrder(actor: Actor, lines: CartRequestLine[], contact: OrderContact, idempotencyKey?: string): Promise<Order>
   listOrders(actor: Actor): Promise<Order[]>
   getOrder(actor: Actor, orderId: string): Promise<Order>
-  payOrder(orderId: string, result: 'SUCCESS' | 'FAILURE' | 'CANCEL'): Promise<Order>
+  payOrder(actor: Actor, orderId: string, result: 'SUCCESS' | 'FAILURE' | 'CANCEL'): Promise<Order>
   shipOrder(actor: Actor, orderId: string): Promise<Order>
   receiveOrder(actor: Actor, orderId: string): Promise<Order>
   listAfterSales(actor: Actor): Promise<AfterSale[]>

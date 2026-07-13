@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Menu, ShieldCheck, Store, UserRound, X } from 'lucide-vue-next'
+import { Menu, ShieldCheck, ShoppingCart, Store, UserRound, X } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../../stores/app'
@@ -56,6 +56,15 @@ async function logout() {
       </RouterLink>
     </nav>
     <div class="desktop-actions">
+      <RouterLink
+        to="/cart"
+        class="account-link"
+      >
+        <ShoppingCart
+          :size="18"
+          aria-hidden="true"
+        /><span>购物车</span>
+      </RouterLink>
       <RouterLink
         v-if="auth.isAuthenticated"
         :to="workspace.to"
@@ -134,6 +143,12 @@ async function logout() {
         预约体验
       </RouterLink>
       <RouterLink
+        to="/cart"
+        @click="app.closeMobileNavigation"
+      >
+        购物车
+      </RouterLink>
+      <RouterLink
         v-if="auth.isAuthenticated"
         :to="workspace.to"
         @click="app.closeMobileNavigation"
@@ -153,12 +168,12 @@ async function logout() {
 
 <style scoped>
 .app-header { position: relative; display: flex; align-items: center; min-height: 64px; padding: 0 24px; border-bottom: 1px solid var(--color-border); background: var(--color-surface); gap: 24px; }
-.brand { color: var(--color-ink); font-size: 20px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.brand { display: inline-flex; min-height: 44px; align-items: center; color: var(--color-ink); font-size: 20px; font-weight: 700; text-decoration: none; white-space: nowrap; }
 .desktop-nav { display: flex; align-items: center; gap: 18px; flex: 1; }
-.desktop-nav a, .account-link, .mobile-navigation a { color: var(--color-ink); text-decoration: none; }
+.desktop-nav a, .account-link, .mobile-navigation a { display: inline-flex; min-height: 44px; align-items: center; color: var(--color-ink); text-decoration: none; }
 .desktop-actions { display: flex; align-items: center; gap: 12px; }
 .account-link { display: inline-flex; align-items: center; gap: 6px; }
-.text-button, .menu-button, .mobile-navigation button { min-width: 40px; min-height: 40px; border: 0; background: transparent; color: var(--color-ink); cursor: pointer; }
+.text-button, .menu-button, .mobile-navigation button { min-width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--color-ink); cursor: pointer; }
 .menu-button { display: none; }
 .mobile-navigation { position: absolute; z-index: 10; top: 0; right: 0; display: grid; width: min(320px, 100vw); min-height: 100vh; padding: 20px; background: var(--color-surface); box-shadow: -8px 0 24px rgb(29 37 32 / 18%); gap: 14px; }
 .mobile-navigation__heading { display: flex; align-items: center; justify-content: space-between; font-weight: 700; }
