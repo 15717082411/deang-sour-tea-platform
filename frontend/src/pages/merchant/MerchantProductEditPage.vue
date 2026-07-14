@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { Product } from "../../domain/types";
 import { useMerchantStore } from "../../stores/merchant";
+import { resolveAssetUrl } from "../../utils/assetUrl";
 
 const route = useRoute();
 const router = useRouter();
@@ -227,7 +228,7 @@ async function save(submitAfterSave = false) {
         </p>
         <img
           v-if="form.image"
-          :src="form.image"
+          :src="resolveAssetUrl(form.image)"
           :alt="form.name ? `${form.name}预览` : '商品图片预览'"
         >
         <div v-else>

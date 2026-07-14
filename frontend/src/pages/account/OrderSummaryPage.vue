@@ -6,6 +6,7 @@ import OrderTimeline from '../../components/orders/OrderTimeline.vue'
 import type { Order, OrderStatus } from '../../domain/types'
 import { useAuthStore } from '../../stores/auth'
 import { useOrdersStore } from '../../stores/orders'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -103,7 +104,7 @@ watch(
             :key="line.productId"
           >
             <img
-              :src="line.image"
+              :src="resolveAssetUrl(line.image)"
               :alt="line.productName"
             ><span>{{ line.productName }} × {{ line.quantity }}</span><strong>¥{{ ((line.unitPriceCents * line.quantity) / 100).toFixed(2) }}</strong>
           </li>

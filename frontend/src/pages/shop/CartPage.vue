@@ -4,6 +4,7 @@ import { onMounted, ref } from 'vue'
 import QuantityStepper from '../../components/shop/QuantityStepper.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useCartStore } from '../../stores/cart'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 
 const cart = useCartStore()
 const auth = useAuthStore()
@@ -126,7 +127,7 @@ onMounted(() => cart.load().catch(() => undefined))
           >
             <img
               v-if="item.product"
-              :src="item.product.image"
+              :src="resolveAssetUrl(item.product.image)"
               :alt="item.product.name"
             >
             <div class="cart-line__info">

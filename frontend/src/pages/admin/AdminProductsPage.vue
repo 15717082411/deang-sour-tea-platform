@@ -5,6 +5,7 @@ import ReviewDialog from '../../components/admin/ReviewDialog.vue'
 import FilterBar from '../../components/workspace/FilterBar.vue'
 import type { Product, ProductStatus, ReviewDecision } from '../../domain/types'
 import { useAdminStore } from '../../stores/admin'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 import { formatMoney } from '../../utils/money'
 
 const admin = useAdminStore()
@@ -83,7 +84,7 @@ async function decide(decision: ReviewDecision) {
         class="admin-product-item"
       >
         <img
-          :src="product.image"
+          :src="resolveAssetUrl(product.image)"
           :alt="`${product.name}图片`"
         ><div>
           <span :class="['workspace-status', `workspace-status--${product.status.toLowerCase()}`]">{{ labels[product.status] }}</span><h2>{{ product.name }}</h2><p>{{ product.merchantName ?? product.merchantId }} · {{ product.category }}</p><strong>{{ formatMoney(product.priceCents) }} · 库存 {{ product.stock }}</strong><small>{{ product.description }}</small><p

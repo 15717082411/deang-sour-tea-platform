@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Coffee, Flame, Hand, Leaf, PackageOpen } from 'lucide-vue-next'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 import { CRAFT_FERMENTATION_ALT } from '../../utils/contentImages'
 
 const steps = [
@@ -63,7 +64,7 @@ const steps = [
       <img
         v-if="step.image"
         class="craft-timeline__image"
-        :src="step.image"
+        :src="resolveAssetUrl(step.image)"
         :alt="step.alt"
       >
     </li>

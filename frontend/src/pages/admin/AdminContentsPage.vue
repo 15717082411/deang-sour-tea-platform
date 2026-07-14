@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref, toRaw } from 'vue'
 import FilterBar from '../../components/workspace/FilterBar.vue'
 import type { ContentArticle, ContentInput, ContentSource } from '../../domain/types'
 import { useAdminStore } from '../../stores/admin'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 
 const admin = useAdminStore()
 const keyword = ref('')
@@ -118,7 +119,7 @@ async function togglePublished(content: ContentArticle) {
         class="admin-content-item"
       >
         <img
-          :src="content.cover"
+          :src="resolveAssetUrl(content.cover)"
           :alt="`${content.title}封面`"
         ><div><span :class="['workspace-status', content.published ? 'workspace-status--approved' : 'workspace-status--draft']">{{ content.published ? '已发布' : '草稿' }}</span><h2>{{ content.title }}</h2><p>{{ content.category }} · /culture/{{ content.slug }}</p><small>{{ content.summary }}</small><span>{{ content.sources.length }} 条来源</span></div><div class="admin-content-actions">
           <button
@@ -283,7 +284,7 @@ async function togglePublished(content: ContentArticle) {
           >
             <X :size="18" />
           </button><img
-            :src="preview.cover"
+            :src="resolveAssetUrl(preview.cover)"
             :alt="`${preview.title}封面`"
           ><p class="workspace-eyebrow">
             {{ preview.category }} · {{ preview.published ? '公开预览' : '草稿预览' }}

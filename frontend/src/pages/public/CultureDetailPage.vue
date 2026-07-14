@@ -6,6 +6,7 @@ import SourceList from '../../components/culture/SourceList.vue'
 import { hasRepositoryErrorCode } from '../../data/repository'
 import type { ContentArticle } from '../../domain/types'
 import { useAppStore } from '../../stores/app'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 import { getContentCoverAlt } from '../../utils/contentImages'
 
 const app = useAppStore()
@@ -99,7 +100,7 @@ watch(() => route.params.slug, loadArticle, { immediate: true })
     <article v-else-if="article">
       <header class="article-hero">
         <img
-          :src="article.cover"
+          :src="resolveAssetUrl(article.cover)"
           :alt="getContentCoverAlt(article)"
         >
         <div class="article-hero__copy public-container">

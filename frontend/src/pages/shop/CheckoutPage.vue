@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { useCartStore } from '../../stores/cart'
 import { useOrdersStore } from '../../stores/orders'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 
 const route = useRoute()
 const router = useRouter()
@@ -119,7 +120,7 @@ onMounted(loadCart)
           >
             <img
               v-if="item.product"
-              :src="item.product.image"
+              :src="resolveAssetUrl(item.product.image)"
               :alt="item.product.name"
             ><span class="checkout-line__info"><span>{{ item.product?.name }} × {{ item.quantity }}</span><small
               v-if="item.invalidReason"

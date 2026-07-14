@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import FilterBar from "../../components/workspace/FilterBar.vue";
 import type { ProductStatus } from "../../domain/types";
 import { useMerchantStore } from "../../stores/merchant";
+import { resolveAssetUrl } from "../../utils/assetUrl";
 import { formatMoney } from "../../utils/money";
 
 const merchant = useMerchantStore();
@@ -138,7 +139,7 @@ async function submitProduct(productId: string) {
               <td>
                 <div class="workspace-product-cell">
                   <img
-                    :src="product.image"
+                    :src="resolveAssetUrl(product.image)"
                     :alt="`${product.name}图片`"
                   >
                   <div>
@@ -191,7 +192,7 @@ async function submitProduct(productId: string) {
           class="workspace-mobile-item"
         >
           <img
-            :src="product.image"
+            :src="resolveAssetUrl(product.image)"
             :alt="`${product.name}图片`"
           >
           <div>

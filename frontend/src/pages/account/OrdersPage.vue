@@ -3,6 +3,7 @@ import { ArrowRight, ShoppingBag } from 'lucide-vue-next'
 import { onMounted, ref } from 'vue'
 import type { OrderStatus } from '../../domain/types'
 import { useOrdersStore } from '../../stores/orders'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 
 const orders = useOrdersStore()
 const loading = ref(true)
@@ -91,7 +92,7 @@ onMounted(load)
         </div>
         <div class="order-row__body">
           <img
-            :src="order.lines[0]?.image"
+            :src="resolveAssetUrl(order.lines[0]?.image)"
             :alt="`${order.lines[0]?.productName ?? '酸茶商品'}图片`"
           >
           <div><h2>{{ order.lines[0]?.productName }}</h2><p>{{ order.lines.length }} 种商品 · 共 {{ order.lines.reduce((sum, line) => sum + line.quantity, 0) }} 件</p></div>

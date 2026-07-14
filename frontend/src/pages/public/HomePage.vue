@@ -6,6 +6,7 @@ import AppError from '../../components/common/AppError.vue'
 import AppSkeleton from '../../components/common/AppSkeleton.vue'
 import type { ContentArticle } from '../../domain/types'
 import { useAppStore } from '../../stores/app'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 import { CRAFT_FERMENTATION_ALT, getContentCoverAlt } from '../../utils/contentImages'
 
 const app = useAppStore()
@@ -180,7 +181,7 @@ onMounted(loadArticles)
             class="article-row"
           >
             <img
-              :src="article.cover"
+              :src="resolveAssetUrl(article.cover)"
               :alt="getContentCoverAlt(article)"
             >
             <div>

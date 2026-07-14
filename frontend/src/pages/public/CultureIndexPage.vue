@@ -5,6 +5,7 @@ import AppError from '../../components/common/AppError.vue'
 import AppSkeleton from '../../components/common/AppSkeleton.vue'
 import type { ContentArticle } from '../../domain/types'
 import { useAppStore } from '../../stores/app'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 import { getContentCoverAlt } from '../../utils/contentImages'
 
 const app = useAppStore()
@@ -80,7 +81,7 @@ onMounted(loadContents)
             class="article-row"
           >
             <img
-              :src="article.cover"
+              :src="resolveAssetUrl(article.cover)"
               :alt="getContentCoverAlt(article)"
             >
             <div>

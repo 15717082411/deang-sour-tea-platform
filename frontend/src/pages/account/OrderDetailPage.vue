@@ -7,6 +7,7 @@ import OrderTimeline from '../../components/orders/OrderTimeline.vue'
 import type { Order, OrderStatus } from '../../domain/types'
 import { useAfterSalesStore } from '../../stores/afterSales'
 import { useOrdersStore } from '../../stores/orders'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 
 const route = useRoute()
 const orders = useOrdersStore()
@@ -130,7 +131,7 @@ watch(() => String(route.params.id ?? ''), load, { immediate: true })
               class="order-line"
             >
               <img
-                :src="line.image"
+                :src="resolveAssetUrl(line.image)"
                 :alt="`${line.productName}图片`"
               ><div><strong>{{ line.productName }}</strong><span>{{ money(line.unitPriceCents) }} × {{ line.quantity }}</span></div><b>{{ money(line.unitPriceCents * line.quantity) }}</b>
             </div>

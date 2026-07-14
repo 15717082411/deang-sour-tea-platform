@@ -6,6 +6,7 @@ import QuantityStepper from '../../components/shop/QuantityStepper.vue'
 import type { Product } from '../../domain/types'
 import { useCartStore } from '../../stores/cart'
 import { useCatalogStore } from '../../stores/catalog'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 
 const route = useRoute()
 const router = useRouter()
@@ -93,7 +94,7 @@ onMounted(async () => {
     >
       <figure>
         <img
-          :src="product.image"
+          :src="resolveAssetUrl(product.image)"
           :alt="product.name"
         ><figcaption>商品实拍展示图</figcaption>
       </figure>

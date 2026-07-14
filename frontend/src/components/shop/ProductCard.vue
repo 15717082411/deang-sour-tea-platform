@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ShoppingBag } from 'lucide-vue-next'
 import type { Product } from '../../domain/types'
+import { resolveAssetUrl } from '../../utils/assetUrl'
 
 defineProps<{ product: Product }>()
 </script>
@@ -15,7 +16,7 @@ defineProps<{ product: Product }>()
       class="product-card__image-link"
     >
       <img
-        :src="product.image"
+        :src="resolveAssetUrl(product.image)"
         :alt="product.name"
       >
     </RouterLink>
