@@ -72,8 +72,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundPage },
 ]
 
-export function createAppRouter(pinia: Pinia) {
-  const router = createRouter({ history: createWebHistory(import.meta.env.BASE_URL), routes })
+export function createAppRouter(pinia: Pinia, base = import.meta.env.BASE_URL) {
+  const router = createRouter({ history: createWebHistory(base), routes })
   router.beforeEach(async (to) => {
     const auth = useAuthStore(pinia)
     await auth.rehydrate()

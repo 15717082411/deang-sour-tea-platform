@@ -46,4 +46,15 @@ describe('public culture seed content', () => {
     expect(seed.products.find(({ id }) => id === 'product-gift')?.image).toBe('/images/product-gift.webp')
   })
 
+  it('uses only shipped images for every built-in product', () => {
+    const shippedProductImages = [
+      '/images/product-tasting.webp',
+      '/images/product-gift.webp',
+    ]
+
+    for (const product of createSeedData().products) {
+      expect(shippedProductImages, `${product.id} references an unshipped image`).toContain(product.image)
+    }
+  })
+
 })

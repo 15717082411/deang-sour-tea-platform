@@ -41,7 +41,7 @@ export function createSeedData(): DemoData {
     products: [
       { id: 'product-tasting', merchantId: 'merchant-demo-shop', merchantName: '酸茶工坊', name: '45天发酵酸茶体验装', category: '体验装', priceCents: 5900, stock: 80, sales: 1, description: '微酸回甘的入门体验装。', image: '/images/product-tasting.webp', status: 'APPROVED' },
       { id: 'product-gift', merchantId: 'merchant-demo-shop', merchantName: '酸茶工坊', name: '德昂古树酸茶礼盒', category: '酸茶礼盒', priceCents: 16800, stock: 36, sales: 1, description: '适合馈赠的古树酸茶礼盒。', image: '/images/product-gift.webp', status: 'APPROVED' },
-      { id: 'product-pending', merchantId: 'merchant-demo-shop', merchantName: '酸茶工坊', name: '茶魂守护人纪念币', category: '文创周边', priceCents: 3900, stock: 120, sales: 0, description: '等待审核的文创周边。', image: '/images/product-coin.jpg', status: 'PENDING' },
+      { id: 'product-pending', merchantId: 'merchant-demo-shop', merchantName: '酸茶工坊', name: '三味酸茶品鉴套装', category: '体验装', priceCents: 8900, stock: 60, sales: 0, description: '三种发酵阶段的酸茶小样，等待平台审核。', image: '/images/product-tasting.webp', status: 'PENDING' },
     ],
     contents: [
       {

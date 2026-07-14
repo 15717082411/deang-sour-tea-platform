@@ -25,7 +25,7 @@ async function switchToDemo(): Promise<void> {
 
 <template>
   <button
-    v-if="app.mode === 'hybrid'"
+    v-if="app.apiDetectionEnabled && app.mode === 'hybrid'"
     class="mode-switcher"
     type="button"
     data-testid="switch-to-demo"
@@ -38,7 +38,7 @@ async function switchToDemo(): Promise<void> {
     使用离线演示
   </button>
   <button
-    v-else
+    v-else-if="app.apiDetectionEnabled"
     class="mode-switcher"
     type="button"
     data-testid="retry-api"

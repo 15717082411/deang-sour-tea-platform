@@ -24,7 +24,23 @@ function createModeContext(apiAvailable: boolean) {
 describe('application repository mode', () => {
   beforeEach(() => {
     window.localStorage.clear()
+    vi.unstubAllEnvs()
     vi.restoreAllMocks()
+  })
+
+  it('disables API detection and mode controls in a static demo build', async () => {
+    vi.stubEnv('VITE_STATIC_DEMO', 'true')
+    const { app, gateway, pinia } = createModeContext(true)
+    const detect = vi.spyOn(gateway, 'detectApi')
+    const wrapper = mount(ModeBanner, { global: { plugins: [pinia] } })
+
+    await app.detectApi()
+
+    expect(detect).not.toHaveBeenCalled()
+    expect(app.apiDetectionEnabled).toBe(false)
+    expect(app.mode).toBe('demo')
+    expect(wrapper.find('[data-testid="retry-api"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="switch-to-demo"]').exists()).toBe(false)
   })
 
   it('publishes honest hybrid capability status after API detection', async () => {

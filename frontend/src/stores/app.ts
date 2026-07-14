@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { markRaw, ref, shallowRef } from 'vue'
+import { isStaticDemoBuild } from '../config/runtime'
 import { createApiClient } from '../data/apiClient'
 import { createApiRepository } from '../data/apiRepository'
 import { createDemoRepository } from '../data/demoRepository'
@@ -26,6 +27,7 @@ export const useAppStore = defineStore('app', () => {
   const capabilities = ref({ ...gateway.capabilities.value })
   const repository = shallowRef<PlatformRepository>(markRaw(gateway.repository))
   const mobileNavigationOpen = ref(false)
+  const apiDetectionEnabled = ref(!isStaticDemoBuild())
 
   function syncGatewayState(): void {
     mode.value = gateway.mode.value
@@ -43,6 +45,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function detectApi(): Promise<AppMode> {
+    if (!apiDetectionEnabled.value) return 'demo'
     const detectedMode = await gateway.detectApi()
     syncGatewayState()
     return detectedMode
@@ -66,6 +69,7 @@ export const useAppStore = defineStore('app', () => {
     capabilities,
     repository,
     mobileNavigationOpen,
+    apiDetectionEnabled,
     setRepository,
     setGateway,
     detectApi,

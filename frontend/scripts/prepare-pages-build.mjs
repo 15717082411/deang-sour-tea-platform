@@ -11,14 +11,21 @@ if (!basePath || !basePath.startsWith('/') || !basePath.endsWith('/')) {
 
 const indexPath = resolve('dist/index.html')
 const fallbackPath = resolve('dist/404.html')
-const heroImagePath = resolve('dist/images/hero-sour-tea.webp')
+const shippedImageNames = [
+  'hero-sour-tea.webp',
+  'artisan-story.webp',
+  'craft-fire.webp',
+  'craft-fermentation.webp',
+  'product-tasting.webp',
+  'product-gift.webp',
+]
 const indexHtml = await readFile(indexPath, 'utf8')
 
 if (!indexHtml.includes(`${basePath}assets/`)) {
   throw new Error(`dist/index.html does not contain the expected asset base: ${basePath}assets/`)
 }
 
-await access(heroImagePath, constants.F_OK)
+await Promise.all(shippedImageNames.map((name) => access(resolve('dist/images', name), constants.F_OK)))
 await copyFile(indexPath, fallbackPath)
 
 const fallbackHtml = await readFile(fallbackPath, 'utf8')
