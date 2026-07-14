@@ -16,12 +16,21 @@ describe('resolveAssetUrl', () => {
       .toBe('/deang-sour-tea-platform/images/tea.webp')
   })
 
-  it.each(['https://cdn.example/tea.webp', 'data:image/png;base64,AA', 'blob:https://example/id'])
-    ('keeps absolute source %s unchanged', (source) => {
-      expect(resolveAssetUrl(source, '/deang-sour-tea-platform/')).toBe(source)
-    })
+  it('normalizes a deployment base without boundary slashes', () => {
+    expect(resolveAssetUrl('/images/tea.webp', 'deang-sour-tea-platform'))
+      .toBe('/deang-sour-tea-platform/images/tea.webp')
+  })
 
-  it.each([null, undefined])('returns an empty string for an empty source', (source) => {
+  it.each([
+    'https://cdn.example/tea.webp',
+    'data:image/png;base64,AA',
+    'blob:https://example/id',
+    '//cdn.example/a.webp',
+  ])('keeps absolute source %s unchanged', (source) => {
+    expect(resolveAssetUrl(source, '/deang-sour-tea-platform/')).toBe(source)
+  })
+
+  it.each(['', null, undefined])('returns an empty string for an empty source', (source) => {
     expect(resolveAssetUrl(source, '/deang-sour-tea-platform/')).toBe('')
   })
 })
