@@ -1,6 +1,7 @@
 package com.deang.sourtea.security;
 
 import com.deang.sourtea.model.Role;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -8,7 +9,8 @@ import java.util.Map;
 import java.util.Optional;
 
 @Service
-public class DemoAccountService {
+@Profile("demo & !mysql")
+public class DemoAccountService implements AccountAuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final Map<String, DemoAccount> accounts;
 
@@ -22,6 +24,7 @@ public class DemoAccountService {
         );
     }
 
+    @Override
     public Optional<AuthenticatedUser> authenticate(String username, String password) {
         if (username == null || password == null) return Optional.empty();
         DemoAccount account = accounts.get(username.trim());

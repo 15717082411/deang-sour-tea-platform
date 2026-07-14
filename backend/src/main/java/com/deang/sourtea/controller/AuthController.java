@@ -2,8 +2,8 @@ package com.deang.sourtea.controller;
 
 import com.deang.sourtea.common.ApiResponse;
 import com.deang.sourtea.common.ApiException;
+import com.deang.sourtea.security.AccountAuthenticationService;
 import com.deang.sourtea.security.AuthenticatedUser;
-import com.deang.sourtea.security.DemoAccountService;
 import com.deang.sourtea.security.JwtService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -16,9 +16,9 @@ import java.util.Map;
 @CrossOrigin
 public class AuthController {
     private final JwtService jwtService;
-    private final DemoAccountService accountService;
+    private final AccountAuthenticationService accountService;
 
-    public AuthController(JwtService jwtService, DemoAccountService accountService) {
+    public AuthController(JwtService jwtService, AccountAuthenticationService accountService) {
         this.jwtService = jwtService;
         this.accountService = accountService;
     }
