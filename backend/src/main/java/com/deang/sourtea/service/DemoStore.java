@@ -34,10 +34,11 @@ public class DemoStore implements PlatformStore {
         merchants.add(new Merchant(2L, "茶魂文创铺", "13900000000", "PENDING"));
         contents.add(new Content(1L, "德昂族酸茶是什么", "酸茶科普", "介绍酸茶来源、微酸回甘的风味与德昂族古老茶农身份。", "PUBLISHED"));
         contents.add(new Content(2L, "杀青、揉捻与45天发酵", "制作技艺", "把复杂手工经验拆解为三步核心记忆点。", "PUBLISHED"));
+        contents.add(new Content(3L, "内部编辑草稿", "平台草稿", "未发布内容不能出现在公共接口。", "DRAFT"));
     }
 
     public List<Product> listProducts() {
-        return products;
+        return products.stream().filter(product -> "APPROVED".equals(product.getStatus())).toList();
     }
 
     public Product createProduct(Product product) {
@@ -63,7 +64,7 @@ public class DemoStore implements PlatformStore {
     }
 
     public List<Content> listContents() {
-        return contents;
+        return contents.stream().filter(content -> "PUBLISHED".equals(content.getStatus())).toList();
     }
 
     public Content createContent(Content content) {

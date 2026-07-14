@@ -1,6 +1,7 @@
 package com.deang.sourtea.model;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
@@ -10,6 +11,7 @@ public class Merchant {
     private Long id;
     private String shopName;
     private String contact;
+    @TableField("audit_status")
     private String status;
 
     public Merchant() {

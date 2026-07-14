@@ -46,7 +46,7 @@ public class MybatisPlatformStore implements PlatformStore {
     }
 
     public List<Product> listProducts() {
-        return productMapper.selectList(null);
+        return productMapper.selectList(new QueryWrapper<Product>().eq("status", "APPROVED"));
     }
 
     public Product createProduct(Product product) {
@@ -76,7 +76,7 @@ public class MybatisPlatformStore implements PlatformStore {
     }
 
     public List<Content> listContents() {
-        return contentMapper.selectList(null);
+        return contentMapper.selectList(new QueryWrapper<Content>().eq("status", "PUBLISHED"));
     }
 
     public Content createContent(Content content) {
