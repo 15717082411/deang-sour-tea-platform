@@ -81,7 +81,7 @@ export function createRepositoryGateway(options: {
     repository,
     async detectApi() {
       try {
-        await options.api.listProducts()
+        await options.api.listContents()
         mode.value = 'hybrid'
         capabilities.value = Object.fromEntries(capabilityNames.map((name) => [name, safeApiCapabilities.has(name) ? 'api' : 'demo'])) as CapabilitySources
       } catch {

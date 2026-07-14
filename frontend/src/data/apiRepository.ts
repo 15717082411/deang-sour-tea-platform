@@ -45,16 +45,24 @@ function records(value: unknown): RawRecord[] {
 }
 
 function id(value: unknown, label = '资源'): string {
-  if ((typeof value !== 'string' && typeof value !== 'number') || String(value).trim() === '') throw new ApiBusinessError(-1, `${label} ID 无效`)
-  return String(value)
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) throw new ApiBusinessError(-1, `${label} ID 无效`)
+    return String(value)
+  }
+  if (typeof value !== 'string' || value.trim() === '') throw new ApiBusinessError(-1, `${label} ID 无效`)
+  return value.trim()
 }
 
 function text(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
 }
 
-function integer(value: unknown, fallback = 0): number {
-  const parsed = typeof value === 'number' ? value : typeof value === 'string' && /^-?\d+$/.test(value) ? Number(value) : fallback
+function integer(value: unknown, fallback?: number): number {
+  if (value === undefined && fallback !== undefined) return fallback
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^-?\d+$/.test(value))) {
+    throw new ApiBusinessError(-1, 'API 整数字段无效')
+  }
+  const parsed = typeof value === 'number' ? value : Number(value)
   if (!Number.isSafeInteger(parsed)) throw new ApiBusinessError(-1, 'API 整数超出安全范围')
   return parsed
 }
@@ -87,7 +95,7 @@ function normalizeProduct(value: unknown): Product {
     category: text(raw.category, '酸茶产品'),
     priceCents,
     stock: integer(raw.stock),
-    sales: integer(raw.sales),
+    sales: integer(raw.sales, 0),
     description: text(raw.description, '由 Spring Boot API 提供的德昂族酸茶商品。'),
     image: text(raw.image, '/images/product-tasting.webp'),
     status,

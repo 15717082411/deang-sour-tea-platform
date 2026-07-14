@@ -26,7 +26,8 @@ describe('repository mode gateway', () => {
     expect(gateway.capabilities.value.content).toBe('api')
     expect(gateway.capabilities.value.catalog).toBe('demo')
     expect((await gateway.repository.listContents())[0].title).toBe('API 酸茶内容')
-    expect(api.listProducts).toHaveBeenCalledTimes(1)
+    expect(api.listProducts).not.toHaveBeenCalled()
+    expect(api.listContents).toHaveBeenCalledTimes(2)
   })
 
   it('keeps admin content operations in the demo repository', async () => {
@@ -44,7 +45,7 @@ describe('repository mode gateway', () => {
 
   it('keeps full demo mode when the API probe fails', async () => {
     const { api, demo } = repositories()
-    vi.mocked(api.listProducts).mockRejectedValue(new Error('offline'))
+    vi.mocked(api.listContents).mockRejectedValue(new Error('offline'))
     const gateway = createRepositoryGateway({ api, demo })
 
     await expect(gateway.detectApi()).resolves.toBe('demo')

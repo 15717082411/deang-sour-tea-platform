@@ -38,6 +38,29 @@ describe('Spring Boot API repository', () => {
     })])
   })
 
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects an unsafe numeric API id: %s',
+    async (unsafeId) => {
+      const http = client()
+      vi.mocked(http.get).mockResolvedValue({ data: { code: 0, message: 'ok', data: [{
+        id: unsafeId, merchantId: 1, name: '测试商品', category: '体验装', price: '59.00',
+        stock: 1, sales: 0, status: 'APPROVED',
+      }] } })
+
+      await expect(createApiRepository(http).listProducts()).rejects.toBeInstanceOf(ApiBusinessError)
+    },
+  )
+
+  it('rejects an explicitly malformed integer instead of coercing it to zero', async () => {
+    const http = client()
+    vi.mocked(http.get).mockResolvedValue({ data: { code: 0, message: 'ok', data: [{
+      id: 2, merchantId: 1, name: '测试商品', category: '体验装', priceCents: 'invalid',
+      stock: 1, sales: 0, status: 'APPROVED',
+    }] } })
+
+    await expect(createApiRepository(http).listProducts()).rejects.toBeInstanceOf(ApiBusinessError)
+  })
+
   it('normalizes orderNo, totalAmount, lines, contact and timestamps', async () => {
     const http = client()
     vi.mocked(http.get).mockResolvedValue({ data: { code: 0, message: 'ok', data: [{
