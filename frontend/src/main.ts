@@ -11,8 +11,11 @@ import './styles/workspace.css'
 import './styles/admin.css'
 import App from './App.vue'
 import { createAppRouter } from './router'
+import { useAppStore } from './stores/app'
 
 const pinia = createPinia()
 const router = createAppRouter(pinia)
+const appStore = useAppStore(pinia)
 
 createApp(App).use(pinia).use(router).use(ElementPlus).mount('#app')
+void appStore.detectApi()
