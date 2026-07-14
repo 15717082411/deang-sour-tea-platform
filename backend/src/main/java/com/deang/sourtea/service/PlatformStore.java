@@ -19,11 +19,10 @@ public interface PlatformStore {
     Optional<Merchant> approveMerchant(Long id);
     List<Content> listContents();
     Content createContent(Content content);
-    Order createOrder(List<Long> productIds);
-    List<Order> listOrders();
-    Optional<Order> shipOrder(Long id);
-    Booking createBooking(LocalDate date, Integer peopleCount, String phone);
-    List<Booking> listBookings();
+    Order createOrder(Long userId, List<Long> productIds);
+    List<Order> listOrdersByUserId(Long userId);
+    Booking createBooking(Long userId, LocalDate date, Integer peopleCount, String phone);
+    List<Booking> listBookingsByUserId(Long userId);
     Optional<Booking> verifyBooking(String code);
     Map<String, Object> dashboard();
 }

@@ -46,7 +46,7 @@ public class MybatisPlatformStore implements PlatformStore {
     }
 
     public List<Product> listProducts() {
-        return productMapper.selectList(null);
+        return productMapper.selectList(new QueryWrapper<Product>().eq("status", "APPROVED"));
     }
 
     public Product createProduct(Product product) {
@@ -76,7 +76,7 @@ public class MybatisPlatformStore implements PlatformStore {
     }
 
     public List<Content> listContents() {
-        return contentMapper.selectList(null);
+        return contentMapper.selectList(new QueryWrapper<Content>().eq("status", "PUBLISHED"));
     }
 
     public Content createContent(Content content) {
@@ -86,7 +86,7 @@ public class MybatisPlatformStore implements PlatformStore {
     }
 
     @Transactional
-    public Order createOrder(List<Long> productIds) {
+    public Order createOrder(Long userId, List<Long> productIds) {
         List<Product> products = productMapper.selectBatchIds(productIds);
         BigDecimal total = products.stream()
             .map(Product::getPrice)
@@ -95,31 +95,23 @@ public class MybatisPlatformStore implements PlatformStore {
             product.setStock(Math.max(0, product.getStock() - 1));
             productMapper.updateById(product);
         });
-        Order order = new Order(null, "ST" + System.currentTimeMillis(), 1L, total, "PAID", productIds);
+        Order order = new Order(null, "ST" + System.currentTimeMillis(), userId, total, "PAID", productIds);
         orderMapper.insert(order);
         return order;
     }
 
-    public List<Order> listOrders() {
-        return orderMapper.selectList(null);
+    public List<Order> listOrdersByUserId(Long userId) {
+        return orderMapper.selectList(new QueryWrapper<Order>().eq("user_id", userId));
     }
 
-    public Optional<Order> shipOrder(Long id) {
-        Order order = orderMapper.selectById(id);
-        if (order == null) return Optional.empty();
-        order.setStatus("SHIPPED");
-        orderMapper.updateById(order);
-        return Optional.of(order);
-    }
-
-    public Booking createBooking(LocalDate date, Integer peopleCount, String phone) {
-        Booking booking = new Booking(null, 1L, date, peopleCount, phone, "TEA-" + System.currentTimeMillis());
+    public Booking createBooking(Long userId, LocalDate date, Integer peopleCount, String phone) {
+        Booking booking = new Booking(null, userId, date, peopleCount, phone, "TEA-" + System.currentTimeMillis());
         bookingMapper.insert(booking);
         return booking;
     }
 
-    public List<Booking> listBookings() {
-        return bookingMapper.selectList(null);
+    public List<Booking> listBookingsByUserId(Long userId) {
+        return bookingMapper.selectList(new QueryWrapper<Booking>().eq("user_id", userId));
     }
 
     public Optional<Booking> verifyBooking(String code) {

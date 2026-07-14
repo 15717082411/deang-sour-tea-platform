@@ -1,6 +1,5 @@
 package com.deang.sourtea.security;
 
-import com.deang.sourtea.model.Role;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,16 +26,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         throws ServletException, IOException {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
-            jwtService.parseRole(header.substring(7)).ifPresent(this::authenticate);
+            jwtService.parse(header.substring(7)).ifPresent(this::authenticate);
         }
         filterChain.doFilter(request, response);
     }
 
-    private void authenticate(Role role) {
+    private void authenticate(AuthenticatedUser user) {
         var auth = new UsernamePasswordAuthenticationToken(
-            role.name(),
+            user,
             null,
-            List.of(new SimpleGrantedAuthority("ROLE_" + role.name()))
+            List.of(new SimpleGrantedAuthority("ROLE_" + user.role().name()))
         );
         SecurityContextHolder.getContext().setAuthentication(auth);
     }

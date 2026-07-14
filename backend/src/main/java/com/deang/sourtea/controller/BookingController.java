@@ -2,7 +2,9 @@ package com.deang.sourtea.controller;
 
 import com.deang.sourtea.common.ApiResponse;
 import com.deang.sourtea.model.Booking;
+import com.deang.sourtea.security.AuthenticatedUser;
 import com.deang.sourtea.service.PlatformStore;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -20,13 +22,17 @@ public class BookingController {
     }
 
     @GetMapping
-    public ApiResponse<List<Booking>> list() {
-        return ApiResponse.ok(store.listBookings());
+    public ApiResponse<List<Booking>> list(@AuthenticationPrincipal AuthenticatedUser user) {
+        return ApiResponse.ok(store.listBookingsByUserId(user.userId()));
     }
 
     @PostMapping
-    public ApiResponse<Booking> create(@RequestBody Map<String, String> body) {
+    public ApiResponse<Booking> create(
+        @RequestBody Map<String, String> body,
+        @AuthenticationPrincipal AuthenticatedUser user
+    ) {
         Booking booking = store.createBooking(
+            user.userId(),
             LocalDate.parse(body.get("date")),
             Integer.parseInt(body.getOrDefault("peopleCount", "1")),
             body.getOrDefault("phone", "")

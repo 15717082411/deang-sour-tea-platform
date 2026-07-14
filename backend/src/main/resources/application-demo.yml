@@ -3,6 +3,3 @@ spring:
     exclude:
       - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
       - com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration
-
-app:
-  jwt-secret: local-demo-only-secret-change-before-deployment
