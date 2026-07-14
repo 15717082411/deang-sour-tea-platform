@@ -46,6 +46,19 @@ npm run dev
 
 页面顶部会持续显示当前模式，可手动切回离线演示。该边界是 A 方案的正式设计，避免把尚未持久化的后端流程误示为完整联调。
 
+## GitHub Pages 在线预览
+
+公开预览地址为 [https://15717082411.github.io/deang-sour-tea-platform/](https://15717082411.github.io/deang-sour-tea-platform/)。Pages 构建固定使用 `VITE_BASE_PATH=/deang-sour-tea-platform/` 和 `VITE_STATIC_DEMO=true`：预览站始终运行浏览器本地静态演示，不会连接或代表完整后端业务联调。
+
+演示账号密码均为 `Demo123!`：普通用户 `user_demo`、商家 `merchant_demo`、管理员 `admin_demo`。演示数据写入浏览器 `localStorage`，清除该站点数据即可恢复初始种子状态。
+
+向 `main` 推送已验证代码会自动部署，Actions 页面也可手动触发。需要在本地复现 Pages 产物时运行：
+
+```bash
+cd frontend
+VITE_BASE_PATH=/deang-sour-tea-platform/ VITE_STATIC_DEMO=true npm run build:pages
+```
+
 ## 启动后端
 
 默认 `demo` profile 使用内存数据，不需要 MySQL。若命令行未配置 Java 和 Maven，可直接使用 IDEA 自带运行时：
