@@ -6,6 +6,7 @@ import { JOURNEY_POSTER_STORAGE_KEY } from '../../data/posterStorage'
 import { RepositoryError, type PlatformRepository } from '../../data/repository'
 import type { Actor, JourneyPoster, User } from '../../domain/types'
 import BookingPage from '../../pages/booking/BookingPage.vue'
+import BookingsPage from '../../pages/account/BookingsPage.vue'
 import { createAppRouter } from '../../router'
 import { useAppStore } from '../../stores/app'
 import { useAuthStore } from '../../stores/auth'
@@ -168,5 +169,22 @@ describe('booking repository lifecycle', () => {
     await flushPromises()
     expect(wrapper.get('[data-testid="copy-booking-code"]').text()).toBe('复制核销码')
     expect(wrapper.get('[data-testid="copy-booking-code-error"]').text()).toContain('手动选择')
+  })
+
+  it('renders a verified booking timeline in transition order', async () => {
+    const repository = createDemoRepository(window.localStorage, fixedClock)
+    const { admin } = await actors(repository)
+    await repository.verifyBooking(admin, 'BOOK-DEMO-01')
+
+    const pinia = createPinia()
+    useAppStore(pinia).setRepository(repository)
+    await useAuthStore(pinia).login({ username: 'user_demo', password: 'Demo123!' })
+    const router = createAppRouter(pinia)
+    await router.push('/account/bookings')
+    const wrapper = mount(BookingsPage, { global: { plugins: [pinia, router] } })
+    await flushPromises()
+
+    const timeline = wrapper.get('[aria-label="预约 BOOK-DEMO-01 时间线"]')
+    expect(timeline.findAll('strong').map((item) => item.text())).toEqual(['预约已提交', '预约已核销'])
   })
 })

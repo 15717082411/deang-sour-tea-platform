@@ -91,6 +91,22 @@ onMounted(() => { void bookings.load().catch(() => undefined) })
         >
           取消预约
         </button>
+        <ol
+          class="booking-timeline"
+          :aria-label="`预约 ${booking.code} 时间线`"
+        >
+          <li
+            v-for="event in booking.timeline"
+            :key="`${event.status}-${event.at}`"
+          >
+            <strong>{{ event.label }}</strong>
+            <time
+              v-if="event.timeKnown !== false"
+              :datetime="event.at"
+            >{{ new Date(event.at).toLocaleString('zh-CN') }}</time>
+            <span v-else>时间未知</span>
+          </li>
+        </ol>
       </article>
     </div>
   </section>

@@ -7,12 +7,14 @@ test('admin reviews merchants and products, publishes content, and verifies a bo
   await loginAs(page, 'admin_demo')
 
   await page.goto('/admin/merchants', { waitUntil: 'commit' })
-  await page.getByRole('button', { name: '审核资料' }).first().click()
+  const pendingMerchant = page.locator('.admin-review-item').filter({ hasText: '山野酸茶小铺' })
+  await pendingMerchant.getByRole('button', { name: '审核资料' }).click()
   await page.getByTestId('review-approve').click()
   await expect(page.locator('.workspace-alert--success')).toContainText('商家申请已通过')
 
   await page.goto('/admin/products', { waitUntil: 'commit' })
-  await page.getByRole('button', { name: '审核商品' }).first().click()
+  const pendingProduct = page.locator('.admin-product-item').filter({ hasText: '茶魂守护人纪念币' })
+  await pendingProduct.getByRole('button', { name: '审核商品' }).click()
   await page.getByTestId('review-approve').click()
   await expect(page.locator('.workspace-alert--success')).toContainText('商品审核已通过')
 

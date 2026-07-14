@@ -25,14 +25,16 @@ test('public routes and role workspaces remain stable', async ({ page, viewport 
   }
 
   for (const account of [
-    { username: 'user_demo', route: '/account/orders' },
-    { username: 'merchant_demo', route: '/merchant/products' },
-    { username: 'admin_demo', route: '/admin/merchants' },
+    { username: 'user_demo', routes: ['/account/orders', '/account/bookings'] },
+    { username: 'merchant_demo', routes: ['/merchant/products'] },
+    { username: 'admin_demo', routes: ['/admin/merchants'] },
   ] as const) {
     await test.step(account.username, async () => {
       await loginAs(page, account.username)
-      await page.goto(account.route, { waitUntil: 'commit' })
-      await expectStablePage(page)
+      for (const route of account.routes) {
+        await page.goto(route, { waitUntil: 'commit' })
+        await expectStablePage(page)
+      }
     })
   }
 })

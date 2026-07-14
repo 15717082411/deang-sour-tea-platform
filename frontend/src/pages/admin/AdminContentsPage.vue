@@ -31,7 +31,7 @@ function newContent() {
 }
 
 function editContent(content: ContentArticle) {
-  Object.assign(form, globalThis.structuredClone(content))
+  Object.assign(form, globalThis.structuredClone(toRaw(content)))
   editorOpen.value = true
   localError.value = null
 }

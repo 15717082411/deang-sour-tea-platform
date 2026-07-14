@@ -201,6 +201,18 @@
 .booking-row p { margin: 0; }
 .booking-row p { margin: 5px 0; color: var(--color-muted); }
 .booking-row code { color: #294c3c; }
+.booking-timeline {
+  display: flex;
+  margin: 0;
+  padding: 12px 0 0;
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--color-border);
+  list-style: none;
+  gap: 20px;
+}
+.booking-timeline li { display: grid; gap: 3px; }
+.booking-timeline time,
+.booking-timeline li > span { color: var(--color-muted); font-size: 13px; }
 
 .poster-grid { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .poster-item { padding: 22px; }
@@ -247,6 +259,7 @@
   .booking-row { grid-template-columns: 64px minmax(0, 1fr); }
   .booking-row > .status-badge,
   .booking-row > button { grid-column: 2; justify-self: start; }
+  .booking-timeline { overflow-x: auto; gap: 16px; }
   .poster-grid { grid-template-columns: 1fr; }
   .poster-item__actions,
   .after-sale-row li { align-items: flex-start; flex-direction: column; }

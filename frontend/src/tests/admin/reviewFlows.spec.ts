@@ -168,4 +168,32 @@ describe('admin review UI contracts', () => {
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
     expect(useAdminStore(pinia).contents).toContainEqual(expect.objectContaining({ slug: 'reactive-content-test', published: true }))
   })
+
+  it('edits an existing content item without mutating its reactive nested sources before save', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    useAppStore(pinia).setRepository(createDemoRepository(window.localStorage))
+    await useAuthStore(pinia).login({ username: 'admin_demo', password: 'Demo123!' })
+    const wrapper = mount(AdminContentsPage, {
+      global: { plugins: [pinia], stubs: { Teleport: true } },
+    })
+    await flushPromises()
+
+    const admin = useAdminStore(pinia)
+    const target = admin.contents[0]
+    const originalPublisher = target.sources[0].publisher
+    const item = wrapper.findAll('.admin-content-item').find((candidate) => candidate.text().includes(target.title))
+    await item!.get('button[aria-label="编辑内容"]').trigger('click')
+
+    const editor = wrapper.get('.admin-content-editor')
+    const sourcePublisher = editor.get('fieldset').findAll('input')[1]
+    await sourcePublisher.setValue('答辩来源机构')
+    expect(target.sources[0].publisher).toBe(originalPublisher)
+
+    await editor.findAll('button').find((button) => button.text().includes('保存并发布'))!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(admin.contents.find(({ id }) => id === target.id)?.sources[0].publisher).toBe('答辩来源机构')
+  })
 })
