@@ -15,9 +15,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      VITE_BASE_PATH: /deang-sour-tea-platform/
-      VITE_STATIC_DEMO: 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -47,6 +44,9 @@ jobs:
 
       - name: Build Pages artifact
         working-directory: frontend
+        env:
+          VITE_BASE_PATH: /deang-sour-tea-platform/
+          VITE_STATIC_DEMO: 'true'
         run: npm run build:pages
 
       - name: Upload Pages artifact
