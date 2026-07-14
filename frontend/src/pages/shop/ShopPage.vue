@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { RotateCcw, Search, ShoppingCart } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
+import AppEmpty from '../../components/common/AppEmpty.vue'
+import AppError from '../../components/common/AppError.vue'
+import AppSkeleton from '../../components/common/AppSkeleton.vue'
 import ProductCard from '../../components/shop/ProductCard.vue'
 import { useCatalogStore } from '../../stores/catalog'
 
@@ -106,26 +109,18 @@ onMounted(() => catalog.load().catch(() => undefined))
       class="commerce-container commerce-results"
       aria-live="polite"
     >
-      <p
+      <AppSkeleton
         v-if="catalog.loading"
-        class="commerce-state"
-        role="status"
-      >
-        正在加载商品…
-      </p>
-      <div
+        :lines="5"
+        label="正在加载商品"
+      />
+      <AppError
         v-else-if="catalog.error"
-        class="commerce-state commerce-state--error"
-        role="alert"
-      >
-        <p>{{ catalog.error }}</p><button
-          type="button"
-          class="commerce-button"
-          @click="catalog.load"
-        >
-          重新加载
-        </button>
-      </div>
+        title="商品读取失败"
+        :message="catalog.error"
+        retryable
+        @retry="catalog.load"
+      />
       <div
         v-else-if="products.length"
         class="product-grid"
@@ -136,18 +131,21 @@ onMounted(() => catalog.load().catch(() => undefined))
           :product="product"
         />
       </div>
-      <div
+      <AppEmpty
         v-else
-        class="commerce-state"
+        title="没有符合条件的商品"
+        description="调整筛选条件，或重置后查看全部商品。"
       >
-        <h2>没有符合条件的商品</h2><p>调整筛选条件，或重置后查看全部商品。</p><button
-          type="button"
-          class="commerce-button"
-          @click="resetFilters"
-        >
-          重置筛选
-        </button>
-      </div>
+        <template #action>
+          <button
+            type="button"
+            class="commerce-button"
+            @click="resetFilters"
+          >
+            重置筛选
+          </button>
+        </template>
+      </AppEmpty>
     </section>
   </main>
 </template>

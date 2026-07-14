@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ArrowRight, BookOpen, MapPin } from 'lucide-vue-next'
 import { onMounted, ref } from 'vue'
+import AppEmpty from '../../components/common/AppEmpty.vue'
+import AppError from '../../components/common/AppError.vue'
+import AppSkeleton from '../../components/common/AppSkeleton.vue'
 import type { ContentArticle } from '../../domain/types'
 import { useAppStore } from '../../stores/app'
 import { CRAFT_FERMENTATION_ALT, getContentCoverAlt } from '../../utils/contentImages'
@@ -149,25 +152,23 @@ onMounted(loadArticles)
             aria-hidden="true"
           />
         </div>
-        <p
+        <AppSkeleton
           v-if="isLoading"
-          class="public-state"
-          role="status"
-        >
-          正在读取文化内容…
-        </p>
-        <div
+          :lines="3"
+          label="正在读取文化内容"
+        />
+        <AppError
           v-else-if="loadError"
-          class="public-state public-state--error"
-        >
-          <p>{{ loadError }}</p>
-          <button
-            type="button"
-            @click="loadArticles"
-          >
-            重新读取
-          </button>
-        </div>
+          title="文化内容读取失败"
+          :message="loadError"
+          retryable
+          @retry="loadArticles"
+        />
+        <AppEmpty
+          v-else-if="articles.length === 0"
+          title="暂无已发布内容"
+          description="资料整理完成后会在这里发布。"
+        />
         <div
           v-else
           class="article-rows"

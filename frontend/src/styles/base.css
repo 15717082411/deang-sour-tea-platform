@@ -14,9 +14,39 @@ body {
   margin: 0;
 }
 
+img,
+svg {
+  max-width: 100%;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  letter-spacing: 0;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #287c6d;
+  outline-offset: 3px;
+}
+
 button,
 input,
 select,
 textarea {
   font: inherit;
+}
+
+@media (pointer: coarse) {
+  button,
+  input,
+  select {
+    min-height: 44px;
+  }
 }

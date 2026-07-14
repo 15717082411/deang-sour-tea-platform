@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ArrowRight } from 'lucide-vue-next'
 import { onMounted, ref } from 'vue'
+import AppError from '../../components/common/AppError.vue'
+import AppSkeleton from '../../components/common/AppSkeleton.vue'
 import type { ContentArticle } from '../../domain/types'
 import { useAppStore } from '../../stores/app'
 import { getContentCoverAlt } from '../../utils/contentImages'
@@ -45,28 +47,20 @@ onMounted(loadContents)
 
     <section class="narrative-band narrative-band--light">
       <div class="public-container">
-        <p
+        <AppSkeleton
           v-if="state === 'loading'"
-          class="public-state"
-          role="status"
           data-state="loading"
-        >
-          正在读取文化专题…
-        </p>
-        <div
+          :lines="4"
+          label="正在读取文化专题"
+        />
+        <AppError
           v-else-if="state === 'error'"
-          class="public-state public-state--error"
-          role="alert"
           data-state="error"
-        >
-          <p>{{ errorMessage }}</p>
-          <button
-            type="button"
-            @click="loadContents"
-          >
-            重新读取
-          </button>
-        </div>
+          title="文化专题读取失败"
+          :message="errorMessage"
+          retryable
+          @retry="loadContents"
+        />
         <div
           v-else-if="articles.length === 0"
           class="public-state"
