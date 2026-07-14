@@ -79,3 +79,40 @@
 - `getMerchantApplication` returns the latest application so a corrected resubmission is observable after a rejection.
 - The suite retains the existing negative authorization cases and adds positive persisted-merchant own-order and legitimate-user own-after-sale cases.
 - `OrderRequestLine` remains price-free and `createOrder` continues to obtain unit prices from the approved catalog.
+
+## Task 3: Reproducible Pages Artifact and Workflow (2026-07-14)
+
+### Status
+
+Implementation, Pages artifact construction, type checking, and unit tests completed. Full lint did not pass because of the pre-existing `no-unexpected-multiline` violation in `frontend/src/tests/utils/assetUrl.spec.ts:20`; this task neither modified that file nor permits changing it.
+
+### Modified Files
+
+- `.github/workflows/deploy-pages.yml`
+- `frontend/scripts/prepare-pages-build.mjs`
+- `frontend/package.json`
+- `README.md`
+
+### Verification Commands And Results
+
+| Command | Result |
+| --- | --- |
+| `cd frontend && npm run lint` | Failed: one existing ESLint error at `src/tests/utils/assetUrl.spec.ts:20:5`; the new script passed `npx eslint scripts/prepare-pages-build.mjs`. |
+| `cd frontend && npm run typecheck` | Passed. |
+| `cd frontend && npm test` | Passed: 33 test files and 252 tests. |
+| `cd frontend && VITE_BASE_PATH=/deang-sour-tea-platform/ VITE_STATIC_DEMO=true npm run build:pages` | Passed and reported the verified base path. |
+
+### Build Artifact Assertions
+
+- `dist/index.html` and `dist/404.html` are identical.
+- `dist/images/hero-sour-tea.webp` exists.
+- `dist/index.html` includes `/deang-sour-tea-platform/assets/`.
+
+### Commit And Push
+
+- Commit: `d00ac59 ci: deploy frontend preview to GitHub Pages`
+- Push: succeeded, `codex/vue-final-frontend -> origin/codex/vue-final-frontend`; the upstream branch was configured.
+
+### Concern
+
+The workflow runs the full `npm run lint`. Until the baseline ESLint violation in `frontend/src/tests/utils/assetUrl.spec.ts:20` is fixed by its owner, GitHub Pages deployment will stop before artifact upload and deployment.
