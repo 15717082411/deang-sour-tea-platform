@@ -1,93 +1,85 @@
 # 德昂族酸茶数字化互动体验平台
 
-本项目是一个面向毕业设计的 Web 系统 MVP，定位为“德昂族酸茶非遗科普、互动体验与电商转化平台”。系统覆盖普通用户、商家、管理员三类身份，包含酸茶科普、H5 互动、线下预约核销、酸茶商城、购物车、订单模拟支付、商家中心、管理员审核、内容管理和数据看板。
+面向毕业设计的最终可交互 Web 系统，聚焦德昂族酸茶本身，提供非遗科普、工艺互动、线下体验预约与电商转化。系统包含普通用户、商家、管理员三类身份，并完整演示下单、模拟支付、发货、收货、售后、退款、商品审核、内容发布和预约核销。
+
+## 技术栈
+
+- 前端：Vue 3、TypeScript、Vite、Pinia、Vue Router、ECharts、Lucide、Vitest、Playwright
+- 后端：Java 17、Spring Boot 3、Spring Security、MyBatis-Plus、MySQL 8
+- 数据模式：浏览器本地完整演示数据 + Spring Boot 公开内容 API
 
 ## 项目结构
 
 ```text
-frontend/                         静态前端演示，可直接打开
-  index.html
-  styles.css
-  app.js
-backend/                          Java Spring Boot 后端工程
-  pom.xml
-  src/main/java/com/deang/sourtea
-  src/main/resources/application.yml
-  src/main/resources/db/schema.sql
-docs/                             后续可放设计图、截图、答辩材料
-*.docx                            PRD 与技术方案文档
+frontend/       Vue 3 应用、单元测试与端到端测试
+backend/        Spring Boot API、测试与数据库脚本
+docs/           演示、验收、设计规格与实施计划
+*.docx          PRD 与技术方案交付物
+build_*_docx.py 文档生成脚本
 ```
 
-## 前端演示
+## 启动前端
 
-直接打开：
-
-```bash
-open frontend/index.html
-```
-
-也可以用本地静态服务：
+需要 Node.js 20+ 和本机 Chrome。首次运行：
 
 ```bash
 cd frontend
-npx serve .
+npm ci
+npm run dev
 ```
 
-前端当前使用 `localStorage` 模拟数据，可演示：
+打开终端显示的地址，默认通常为 `http://localhost:5173`。演示账号密码均为 `Demo123!`：
 
-- 普通用户：H5 互动、生成核销码、预约、购物车、下单、订单查看
-- 商家：商品发布、补货、订单发货、售后处理、经营数据查看
-- 管理员：商家审核、商品审核、预约核销、内容发布、平台数据查看
+| 身份 | 用户名 | 入口 |
+| --- | --- | --- |
+| 普通用户 | `user_demo` | `/account` |
+| 商家 | `merchant_demo` | `/merchant` |
+| 管理员 | `admin_demo` | `/admin` |
 
-## 后端运行
+也可以注册新的普通用户并提交商家申请。数据保存在当前浏览器的 `localStorage`，清除站点数据即可恢复种子状态。
 
-后端技术栈：Java 17 + Spring Boot 3 + Spring Security + MyBatis-Plus + MySQL 8。
+## 数据模式
 
-本机需要安装 JDK 17 和 Maven：
+- 离线演示：全部功能使用本地数据，可稳定完成三角色业务闭环。
+- 混合模式：检测到 `GET /api/contents` 可用后，仅科普内容从 API 读取；账号、商品、订单、支付、预约、商家和管理流程仍使用本地演示数据。
+- API 地址默认为 `http://localhost:8080/api`，可在 `frontend/.env.local` 设置 `VITE_API_BASE_URL` 覆盖。
+
+页面顶部会持续显示当前模式，可手动切回离线演示。该边界是 A 方案的正式设计，避免把尚未持久化的后端流程误示为完整联调。
+
+## 启动后端
+
+默认 `demo` profile 使用内存数据，不需要 MySQL。若命令行未配置 Java 和 Maven，可直接使用 IDEA 自带运行时：
 
 ```bash
 cd backend
-mvn spring-boot:run
+JAVA_HOME='/Applications/IntelliJ IDEA.app/Contents/jbr/Contents/Home' \
+  '/Applications/IntelliJ IDEA.app/Contents/plugins/maven/lib/maven3/bin/mvn' spring-boot:run
 ```
 
-默认使用 `demo` profile，走内存数据，不依赖 MySQL。正式数据库模式使用：
+MySQL 模式先执行 `db/schema.sql` 和 `db/seed.sql`，再配置 `DB_URL`、`DB_USERNAME`、`DB_PASSWORD` 与高强度 `JWT_SECRET`：
 
 ```bash
-cd backend
-export JWT_SECRET='replace-with-a-long-random-secret'
-export DB_USERNAME='sour_tea'
-export DB_PASSWORD='your-local-database-password'
 mvn spring-boot:run -Dspring-boot.run.profiles=mysql
 ```
 
-可选：通过 `DB_URL` 覆盖默认的本地 MySQL 连接地址。不要将真实密码或 JWT 密钥写入仓库配置文件。
+MySQL profile 当前是持久化与权限脚手架，不提供演示账号登录，也不作为前端可变业务闭环的数据源。
 
-初始化 MySQL 数据库：
+## 质量检查
 
 ```bash
-mysql -u root -p < src/main/resources/db/schema.sql
-mysql -u root -p < src/main/resources/db/seed.sql
+cd frontend
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e
+
+cd ../backend
+mvn test
 ```
 
-前端会自动尝试连接 `http://localhost:8080/api`。后端在线时同步 API 数据；后端不在线时继续使用 `localStorage` 离线演示。
+端到端测试覆盖桌面、平板、手机响应式检查，并在桌面端覆盖普通用户、商家、管理员及三角色完整生命周期。详细答辩路径见 `docs/demo-checklist.md`，提交前检查见 `docs/final-submission-checklist.md`。
 
-## 默认接口
+## 边界说明
 
-- `POST /api/auth/login`
-- `GET /api/contents`
-- `POST /api/contents`
-- `GET /api/products`
-- `POST /api/products`
-- `GET /api/merchants`
-- `POST /api/admin/merchants/{id}/approve`
-- `POST /api/admin/products/{id}/approve`
-- `POST /api/orders`
-- `POST /api/orders/{id}/ship`
-- `GET /api/bookings`
-- `POST /api/bookings`
-- `POST /api/bookings/verify`
-- `GET /api/dashboard`
-
-## 说明
-
-毕设阶段使用模拟支付，不接入真实资金清算。后端已包含 JWT/RBAC、demo 内存模式与 MySQL 持久化模式；图片上传和更细粒度的订单明细持久化可作为后续增强点。
+支付与退款均为状态机驱动的模拟流程，不接入真实资金渠道。生产化仍需补充数据库账号认证、刷新令牌、真实支付回调、对象级权限、文件存储、日志监控和部署配置；演示凭据不得用于真实环境。

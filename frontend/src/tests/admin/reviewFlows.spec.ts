@@ -5,6 +5,7 @@ import type { Actor, ContentInput } from '../../domain/types'
 import { createDemoRepository } from '../../data/demoRepository'
 import { createAppRouter } from '../../router'
 import ReviewDialog from '../../components/admin/ReviewDialog.vue'
+import AdminContentsPage from '../../pages/admin/AdminContentsPage.vue'
 import { useAdminStore } from '../../stores/admin'
 import { useAppStore } from '../../stores/app'
 import { useAuthStore } from '../../stores/auth'
@@ -137,5 +138,34 @@ describe('admin review UI contracts', () => {
       expect(typeof leaf?.components?.default, path).toBe('function')
     }
     await flushPromises()
+  })
+
+  it('publishes a content form without cloning the Vue reactive proxy', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    useAppStore(pinia).setRepository(createDemoRepository(window.localStorage))
+    await useAuthStore(pinia).login({ username: 'admin_demo', password: 'Demo123!' })
+    const wrapper = mount(AdminContentsPage, {
+      global: { plugins: [pinia], stubs: { Teleport: true } },
+    })
+    await flushPromises()
+    await wrapper.findAll('button').find((button) => button.text().includes('新建内容'))!.trigger('click')
+    const editor = wrapper.get('.admin-content-editor')
+    const inputs = editor.findAll('input')
+    const textareas = editor.findAll('textarea')
+    for (const [index, value] of [
+      [0, '响应式内容发布测试'], [1, 'reactive-content-test'], [2, '酸茶科普'],
+      [3, '/images/hero-sour-tea.webp'], [4, '德昂族酸茶制作技艺'],
+      [5, '中国非物质文化遗产网'], [6, 'https://www.ihchina.cn/'],
+    ] as const) await inputs[index].setValue(value)
+    for (const [index, value] of [
+      [0, '用于组件回归测试的摘要。'], [1, '用于组件回归测试的正文。'], [2, '支持相关非遗事实。'],
+    ] as const) await textareas[index].setValue(value)
+
+    await editor.findAll('button').find((button) => button.text().includes('保存并发布'))!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(useAdminStore(pinia).contents).toContainEqual(expect.objectContaining({ slug: 'reactive-content-test', published: true }))
   })
 })

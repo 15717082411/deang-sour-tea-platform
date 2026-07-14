@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Eye, FilePlus2, Pencil, Plus, Trash2, X } from 'lucide-vue-next'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, toRaw } from 'vue'
 import FilterBar from '../../components/workspace/FilterBar.vue'
 import type { ContentArticle, ContentInput, ContentSource } from '../../domain/types'
 import { useAdminStore } from '../../stores/admin'
@@ -44,7 +44,7 @@ function removeSource(index: number) {
 async function save(published = form.published) {
   localError.value = null
   try {
-    const saved = await admin.saveContent({ ...globalThis.structuredClone(form), published })
+    const saved = await admin.saveContent({ ...globalThis.structuredClone(toRaw(form)), published })
     Object.assign(form, globalThis.structuredClone(saved))
     editorOpen.value = false
   } catch (error) {
