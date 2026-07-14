@@ -32,8 +32,10 @@ import {
   LEGACY_DEMO_STORAGE_KEY,
   migrateDemoDataV3,
   migrateDemoDataV4,
+  migrateDemoDataV5,
   type DemoData,
   V3_DEMO_STORAGE_KEY,
+  V4_DEMO_STORAGE_KEY,
 } from './seed'
 
 const clone = <Value>(value: Value): Value => JSON.parse(JSON.stringify(value)) as Value
@@ -85,8 +87,19 @@ export function createDemoRepository(storage: Storage, clock: DemoClock = () => 
       if (legacySerialized !== null) {
         try {
           const legacy: unknown = JSON.parse(legacySerialized)
+          if (hasVersionedDemoData(legacy, 5)) {
+            const data = migrateDemoDataV5(legacy.data)
+            storage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ version: DEMO_DATA_VERSION, data }))
+            return data
+          }
+        } catch { /* try the older legacy key below */ }
+      }
+      const v4Serialized = storage.getItem(V4_DEMO_STORAGE_KEY)
+      if (v4Serialized !== null) {
+        try {
+          const legacy: unknown = JSON.parse(v4Serialized)
           if (hasVersionedDemoData(legacy, 4)) {
-            const data = migrateDemoDataV4(legacy.data)
+            const data = migrateDemoDataV5(migrateDemoDataV4(legacy.data))
             storage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ version: DEMO_DATA_VERSION, data }))
             return data
           }
@@ -97,7 +110,7 @@ export function createDemoRepository(storage: Storage, clock: DemoClock = () => 
         try {
           const legacy: unknown = JSON.parse(v3Serialized)
           if (hasVersionedDemoData(legacy, 3)) {
-            const data = migrateDemoDataV4(migrateDemoDataV3(legacy.data))
+            const data = migrateDemoDataV5(migrateDemoDataV4(migrateDemoDataV3(legacy.data)))
             storage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ version: DEMO_DATA_VERSION, data }))
             return data
           }

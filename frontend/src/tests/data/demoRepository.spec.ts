@@ -1,7 +1,7 @@
 import type { Actor, Booking, ContentArticle, MerchantApplicationInput, OrderContact } from '../../domain/types'
 import type { PlatformRepository } from '../../data/repository'
 import { createDemoRepository } from '../../data/demoRepository'
-import { createSeedData, DEMO_DATA_VERSION, DEMO_STORAGE_KEY, LEGACY_DEMO_STORAGE_KEY, type DemoData } from '../../data/seed'
+import { createSeedData, DEMO_DATA_VERSION, DEMO_STORAGE_KEY, type DemoData, V4_DEMO_STORAGE_KEY } from '../../data/seed'
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>()
@@ -87,6 +87,43 @@ async function createApprovedSecondMerchantProduct(repo: PlatformRepository) {
 }
 
 describe('demo repository', () => {
+  it('migrates v5 pending product defaults to v6 while preserving user changes and review data', () => {
+    const storage = new MemoryStorage()
+    const legacy = createSeedData()
+    const pendingProduct = legacy.products.find(({ id }) => id === 'product-pending')!
+    Object.assign(pendingProduct, {
+      name: '茶魂守护人纪念币',
+      category: '文创周边',
+      priceCents: 3900,
+      stock: 120,
+      description: '用户自定义说明',
+      image: '/images/product-coin.jpg',
+      status: 'REJECTED',
+      sales: 9,
+    })
+    storage.setItem('deang-sour-tea:v5', JSON.stringify({ version: 5, data: legacy }))
+
+    createDemoRepository(storage)
+
+    const persisted = JSON.parse(storage.getItem('deang-sour-tea:v6') ?? '{}') as {
+      version?: number
+      data?: DemoData
+    }
+    const migratedProduct = persisted.data?.products.find(({ id }) => id === 'product-pending')
+    const currentProduct = createSeedData().products.find(({ id }) => id === 'product-pending')!
+    expect(persisted.version).toBe(6)
+    expect(migratedProduct).toMatchObject({
+      name: currentProduct.name,
+      category: currentProduct.category,
+      priceCents: currentProduct.priceCents,
+      stock: currentProduct.stock,
+      description: '用户自定义说明',
+      image: currentProduct.image,
+      status: 'REJECTED',
+      sales: 9,
+    })
+  })
+
   it('migrates terminal legacy bookings with a complete and honest timeline', () => {
     const storage = new MemoryStorage()
     const legacy = createSeedData()
@@ -101,7 +138,7 @@ describe('demo repository', () => {
         phone: '13800138000', code: 'BOOK-LEGACY-VERIFY', status: 'VERIFIED', createdAt,
       },
     ] as Booking[]
-    storage.setItem(LEGACY_DEMO_STORAGE_KEY, JSON.stringify({ version: 4, data: legacy }))
+    storage.setItem(V4_DEMO_STORAGE_KEY, JSON.stringify({ version: 4, data: legacy }))
 
     createDemoRepository(storage)
     const migrated = JSON.parse(storage.getItem(DEMO_STORAGE_KEY) ?? '{}') as { data: DemoData }
@@ -118,7 +155,7 @@ describe('demo repository', () => {
     }
   })
 
-  it('migrates the real v3 key to v5 without losing user business data', async () => {
+  it('migrates the real v3 key to v6 without losing user business data', async () => {
     const storage = new MemoryStorage()
     const legacy = createV3Data()
     const customUser = {
@@ -238,7 +275,7 @@ describe('demo repository', () => {
     expect((await repo.getContent('fermentation-craft')).title).not.toContain('45天')
     expect(migratedProducts.find(({ id }) => id === 'product-tasting')).toMatchObject({ image: '/images/product-tasting.webp', stock: 11, status: 'OFF_SHELF' })
     expect(await repo.getProduct('product-gift')).toMatchObject({ image: '/images/product-gift.webp', stock: 13 })
-    expect(migrated).toMatchObject({ version: 5 })
+    expect(migrated).toMatchObject({ version: 6 })
     expect(migrated.data.users).toEqual(legacy.users)
     expect(migrated.data.passwords).toEqual(legacy.passwords)
     expect(migrated.data.sessions).toEqual(legacy.sessions)
@@ -290,7 +327,7 @@ describe('demo repository', () => {
       const orders = data.orders as Array<Record<string, unknown>>
       orders[0].lines = {}
     }],
-  ])('rejects invalid v3 data with %s and writes a fresh v5 seed', (_caseName, corrupt) => {
+  ])('rejects invalid v3 data with %s and writes a fresh v6 seed', (_caseName, corrupt) => {
     const storage = new MemoryStorage()
     const legacy = createV3Data() as unknown as Record<string, unknown>
     corrupt(legacy)
@@ -325,7 +362,7 @@ describe('demo repository', () => {
     expect(craftEntries[0].title).toBe('用户保留的第一条工艺标题')
   })
 
-  it('adds a missing built-in culture article once and leaves an existing v5 migration unchanged', async () => {
+  it('adds a missing built-in culture article once and leaves an existing v6 migration unchanged', async () => {
     const storage = new MemoryStorage()
     const legacy = createV3Data()
     legacy.contents = legacy.contents.filter(({ id }) => id !== 'content-craft')

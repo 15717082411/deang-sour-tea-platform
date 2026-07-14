@@ -22,9 +22,10 @@ export interface DemoData {
   merchantApplications: MerchantApplication[]
 }
 
-export const DEMO_STORAGE_KEY = 'deang-sour-tea:v5'
-export const DEMO_DATA_VERSION = 5
-export const LEGACY_DEMO_STORAGE_KEY = 'deang-sour-tea:v4'
+export const DEMO_STORAGE_KEY = 'deang-sour-tea:v6'
+export const DEMO_DATA_VERSION = 6
+export const LEGACY_DEMO_STORAGE_KEY = 'deang-sour-tea:v5'
+export const V4_DEMO_STORAGE_KEY = 'deang-sour-tea:v4'
 export const V3_DEMO_STORAGE_KEY = 'deang-sour-tea:v3'
 
 const seedTimestamp = '2026-07-13T00:00:00.000Z'
@@ -178,6 +179,23 @@ const builtInImageMigrations: Record<string, { from: string; to: string }> = {
   'product-tasting': { from: '/images/product-tasting.jpg', to: '/images/product-tasting.webp' },
   'product-gift': { from: '/images/product-gift.jpg', to: '/images/product-gift.webp' },
 }
+const v5PendingProductFields = [
+  'name',
+  'category',
+  'priceCents',
+  'stock',
+  'description',
+  'image',
+] as const satisfies readonly (keyof Product)[]
+type V5PendingProductField = typeof v5PendingProductFields[number]
+const v5BuiltInPendingProduct = {
+  name: '茶魂守护人纪念币',
+  category: '文创周边',
+  priceCents: 3900,
+  stock: 120,
+  description: '等待审核的文创周边。',
+  image: '/images/product-coin.jpg',
+} satisfies Pick<Product, V5PendingProductField>
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -303,5 +321,23 @@ export function migrateDemoDataV4(legacyData: DemoData): DemoData {
     }
   })
 
+  return migrated
+}
+
+export function migrateDemoDataV5(legacyData: DemoData): DemoData {
+  const migrated = structuredClone(legacyData)
+  const pendingProduct = migrated.products.find(({ id }) => id === 'product-pending')
+  const currentProduct = createSeedData().products.find(({ id }) => id === 'product-pending')
+  if (pendingProduct === undefined || currentProduct === undefined) return migrated
+
+  const mutableProduct = pendingProduct as unknown as Record<
+    V5PendingProductField,
+    Product[V5PendingProductField]
+  >
+  for (const field of v5PendingProductFields) {
+    if (pendingProduct[field] === v5BuiltInPendingProduct[field]) {
+      mutableProduct[field] = currentProduct[field]
+    }
+  }
   return migrated
 }

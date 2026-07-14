@@ -152,8 +152,8 @@ describe('account order lifecycle', () => {
     const { user } = await actors(repository)
     const persisted = JSON.parse(storage.getItem(DEMO_STORAGE_KEY) ?? '{}') as { version: number }
 
-    expect(DEMO_DATA_VERSION).toBe(5)
-    expect(persisted.version).toBe(5)
+    expect(DEMO_DATA_VERSION).toBe(6)
+    expect(persisted.version).toBe(6)
     expect((await repository.getOrder(user, 'order-after-sale')).status).toBe('PAID')
     expect((await repository.listBookings(user))[0].timeline).toHaveLength(1)
     expect(await repository.getUser(customUser.id)).toEqual(customUser)
