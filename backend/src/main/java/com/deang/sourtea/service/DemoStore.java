@@ -73,34 +73,28 @@ public class DemoStore implements PlatformStore {
         return created;
     }
 
-    public Order createOrder(List<Long> productIds) {
+    public Order createOrder(Long userId, List<Long> productIds) {
         BigDecimal total = products.stream()
             .filter(product -> productIds.contains(product.getId()))
             .map(Product::getPrice)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
-        Order order = new Order(ids.incrementAndGet(), "ST" + System.currentTimeMillis(), 1L, total, "PAID", productIds);
+        Order order = new Order(ids.incrementAndGet(), "ST" + System.currentTimeMillis(), userId, total, "PAID", productIds);
         orders.add(order);
         return order;
     }
 
-    public List<Order> listOrders() {
-        return orders;
+    public List<Order> listOrdersByUserId(Long userId) {
+        return orders.stream().filter(order -> order.getUserId().equals(userId)).toList();
     }
 
-    public Optional<Order> shipOrder(Long id) {
-        Optional<Order> order = orders.stream().filter(item -> item.getId().equals(id)).findFirst();
-        order.ifPresent(item -> item.setStatus("SHIPPED"));
-        return order;
-    }
-
-    public Booking createBooking(LocalDate date, Integer peopleCount, String phone) {
-        Booking booking = new Booking(ids.incrementAndGet(), 1L, date, peopleCount, phone, "TEA-" + ids.incrementAndGet());
+    public Booking createBooking(Long userId, LocalDate date, Integer peopleCount, String phone) {
+        Booking booking = new Booking(ids.incrementAndGet(), userId, date, peopleCount, phone, "TEA-" + ids.incrementAndGet());
         bookings.add(booking);
         return booking;
     }
 
-    public List<Booking> listBookings() {
-        return bookings;
+    public List<Booking> listBookingsByUserId(Long userId) {
+        return bookings.stream().filter(booking -> booking.getUserId().equals(userId)).toList();
     }
 
     public Optional<Booking> verifyBooking(String code) {
