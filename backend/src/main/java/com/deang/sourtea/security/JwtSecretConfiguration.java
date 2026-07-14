@@ -4,7 +4,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
@@ -18,7 +17,7 @@ public class JwtSecretConfiguration {
         @Value("${app.jwt-secret:}") String configuredSecret,
         Environment environment
     ) {
-        boolean demoOnly = environment.acceptsProfiles(Profiles.of("demo & !mysql"));
+        boolean demoOnly = StrictDemoMode.isActive(environment);
         if (configuredSecret == null || configuredSecret.isBlank()) {
             if (!demoOnly) {
                 throw new IllegalStateException("JWT_SECRET is required outside the demo profile");

@@ -69,6 +69,11 @@ class JwtSecretConfigurationTest {
     }
 
     @Test
+    void nonDemoRequirementsWinWhenDemoAndProdProfilesAreBothActive() {
+        assertStartupFails("demo,prod", "", "JWT_SECRET is required");
+    }
+
+    @Test
     void packagedDemoConfigurationContainsNoJwtSigningSecret() throws Exception {
         String yaml = new ClassPathResource("application-demo.yml")
             .getContentAsString(StandardCharsets.UTF_8);

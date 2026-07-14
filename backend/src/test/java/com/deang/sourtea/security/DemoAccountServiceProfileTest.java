@@ -66,6 +66,19 @@ class DemoAccountServiceProfileTest {
             });
     }
 
+    @Test
+    void nonDemoProfileWinsWhenDemoAndProdProfilesAreBothActive() {
+        contextRunner
+            .withPropertyValues("spring.profiles.active=demo,prod")
+            .run(context -> {
+                assertThat(context).doesNotHaveBean(DemoAccountService.class);
+                assertThat(context).hasSingleBean(AccountAuthenticationService.class);
+                assertThat(context.getBean(AccountAuthenticationService.class)
+                    .authenticate("admin_demo", "Demo123!"))
+                    .isEmpty();
+            });
+    }
+
     @Configuration(proxyBeanMethods = false)
     @Import({DemoAccountService.class, RejectingAccountAuthenticationService.class})
     static class TestConfiguration {
