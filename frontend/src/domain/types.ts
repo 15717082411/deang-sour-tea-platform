@@ -84,6 +84,7 @@ export interface TimelineEvent {
   label: string
   at: string
   note?: string
+  timeKnown?: boolean
 }
 
 export interface Order {

@@ -276,14 +276,30 @@ export function migrateDemoDataV4(legacyData: DemoData): DemoData {
 
   migrated.bookings = migrated.bookings.map((booking) => {
     if (Array.isArray(booking.timeline) && booking.timeline.length > 0) return booking
+    const submittedEvent = {
+      status: 'PENDING',
+      label: '预约已提交',
+      at: booking.createdAt,
+    }
+    if (booking.status === 'PENDING') return { ...booking, timeline: [submittedEvent] }
     const label = booking.status === 'VERIFIED'
       ? '预约已核销'
-      : booking.status === 'CANCELLED'
-        ? '预约已取消'
-        : '预约已提交'
+      : '预约已取消'
+    const knownTerminalTime = booking.status === 'VERIFIED' && booking.verifiedAt !== undefined
     return {
       ...booking,
-      timeline: [{ status: booking.status, label, at: booking.createdAt }],
+      timeline: [
+        submittedEvent,
+        {
+          status: booking.status,
+          label,
+          at: knownTerminalTime ? booking.verifiedAt as string : booking.createdAt,
+          ...(knownTerminalTime ? {} : {
+            note: '历史记录迁移：终态发生时间未知',
+            timeKnown: false,
+          }),
+        },
+      ],
     }
   })
 

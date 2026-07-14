@@ -1,7 +1,7 @@
 import type { Actor, Booking, ContentArticle, MerchantApplicationInput, OrderContact } from '../../domain/types'
 import type { PlatformRepository } from '../../data/repository'
 import { createDemoRepository } from '../../data/demoRepository'
-import { createSeedData, DEMO_DATA_VERSION, DEMO_STORAGE_KEY, type DemoData } from '../../data/seed'
+import { createSeedData, DEMO_DATA_VERSION, DEMO_STORAGE_KEY, LEGACY_DEMO_STORAGE_KEY, type DemoData } from '../../data/seed'
 
 class MemoryStorage implements Storage {
   private readonly values = new Map<string, string>()
@@ -87,6 +87,37 @@ async function createApprovedSecondMerchantProduct(repo: PlatformRepository) {
 }
 
 describe('demo repository', () => {
+  it('migrates terminal legacy bookings with a complete and honest timeline', () => {
+    const storage = new MemoryStorage()
+    const legacy = createSeedData()
+    const createdAt = '2026-07-12T00:00:00.000Z'
+    legacy.bookings = [
+      {
+        id: 'booking-legacy-cancelled', userId: 'user-demo', date: '2026-09-01', people: 2,
+        phone: '13800138000', code: 'BOOK-LEGACY-CANCEL', status: 'CANCELLED', createdAt,
+      },
+      {
+        id: 'booking-legacy-verified', userId: 'user-demo', date: '2026-09-02', people: 3,
+        phone: '13800138000', code: 'BOOK-LEGACY-VERIFY', status: 'VERIFIED', createdAt,
+      },
+    ] as Booking[]
+    storage.setItem(LEGACY_DEMO_STORAGE_KEY, JSON.stringify({ version: 4, data: legacy }))
+
+    createDemoRepository(storage)
+    const migrated = JSON.parse(storage.getItem(DEMO_STORAGE_KEY) ?? '{}') as { data: DemoData }
+
+    for (const booking of migrated.data.bookings) {
+      expect(booking.timeline.map(({ status }) => status)).toEqual(['PENDING', booking.status])
+      expect(booking.timeline[0]).toMatchObject({ status: 'PENDING', at: createdAt })
+      expect(booking.timeline[1]).toMatchObject({
+        status: booking.status,
+        at: createdAt,
+        timeKnown: false,
+        note: '历史记录迁移：终态发生时间未知',
+      })
+    }
+  })
+
   it('migrates the real v3 key to v5 without losing user business data', async () => {
     const storage = new MemoryStorage()
     const legacy = createV3Data()
@@ -188,6 +219,8 @@ describe('demo repository', () => {
 
     const repo = createDemoRepository(storage)
     const migrated = JSON.parse(storage.getItem(DEMO_STORAGE_KEY) ?? '{}') as { version: number; data: typeof legacy }
+    const adminUser = legacy.users.find(({ role }) => role === 'ADMIN')!
+    const migratedProducts = await repo.listAdminProducts(actorFor(adminUser))
 
     await expect(repo.validateSession(customUser.id, 'SESSION-custom')).resolves.toMatchObject({ user: customUser })
     await expect(repo.getCart(actorFor(customUser))).resolves.toEqual(legacy.carts[customUser.id])
@@ -196,14 +229,14 @@ describe('demo repository', () => {
       ...customBooking,
       timeline: expect.any(Array),
     }))
-    await expect(repo.getProduct(customProduct.id)).resolves.toMatchObject({
+    expect(migratedProducts.find(({ id }) => id === customProduct.id)).toMatchObject({
       ...customProduct,
       merchantName: '酸茶工坊',
     })
     expect(await repo.listContents()).toContainEqual(customContent)
     expect((await repo.getContent('what-is-sour-tea')).sources.length).toBeGreaterThan(0)
     expect((await repo.getContent('fermentation-craft')).title).not.toContain('45天')
-    expect(await repo.getProduct('product-tasting')).toMatchObject({ image: '/images/product-tasting.webp', stock: 11, status: 'OFF_SHELF' })
+    expect(migratedProducts.find(({ id }) => id === 'product-tasting')).toMatchObject({ image: '/images/product-tasting.webp', stock: 11, status: 'OFF_SHELF' })
     expect(await repo.getProduct('product-gift')).toMatchObject({ image: '/images/product-gift.webp', stock: 13 })
     expect(migrated).toMatchObject({ version: 5 })
     expect(migrated.data.users).toEqual(legacy.users)
@@ -547,7 +580,8 @@ describe('demo repository', () => {
     const adminActor = { userId: admin.user.id, role: admin.user.role } as const
 
     expect((await repo.listProducts()).filter((product) => product.status === 'APPROVED')).toHaveLength(2)
-    expect((await repo.getProduct('product-pending')).status).toBe('PENDING')
+    await expect(repo.getProduct('product-pending')).rejects.toMatchObject({ code: 'PRODUCT_NOT_FOUND' })
+    expect((await repo.listAdminProducts(adminActor)).find(({ id }) => id === 'product-pending')?.status).toBe('PENDING')
     expect(await repo.listContents()).toHaveLength(2)
     expect((await repo.listMerchantApplications(adminActor)).some((application) => application.status === 'PENDING')).toBe(true)
     expect((await repo.listBookings(userActor)).some((booking) => booking.status === 'PENDING')).toBe(true)

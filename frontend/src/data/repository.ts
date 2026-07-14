@@ -24,6 +24,7 @@ import type {
 export type CartRequestLine = Pick<CartLine, 'productId' | 'quantity'>
 export type RepositoryErrorCode =
   | 'CONTENT_NOT_FOUND'
+  | 'PRODUCT_NOT_FOUND'
   | 'ORDER_NOT_FOUND'
   | 'ORDER_FORBIDDEN'
   | 'ORDER_RECEIVE_INVALID_STATUS'

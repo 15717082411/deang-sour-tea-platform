@@ -264,7 +264,12 @@ export function createDemoRepository(storage: Storage, clock: DemoClock = () => 
       if (query?.sort === 'PRICE_DESC') products = [...products].sort((a, b) => b.priceCents - a.priceCents)
       return products.map(productForRead)
     },
-    async getProduct(productId) { refresh(); return productForRead(productById(productId)) },
+    async getProduct(productId) {
+      refresh()
+      const product = data.products.find((candidate) => candidate.id === productId && candidate.status === 'APPROVED')
+      if (product === undefined) throw new RepositoryError('PRODUCT_NOT_FOUND', '商品不存在或暂未上架')
+      return productForRead(product)
+    },
     async listContents() { refresh(); return clone(data.contents.filter((content) => content.published)) },
     async getContent(slug) {
       refresh()
