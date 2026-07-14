@@ -73,7 +73,7 @@ const routes: RouteRecordRaw[] = [
 ]
 
 export function createAppRouter(pinia: Pinia) {
-  const router = createRouter({ history: createWebHistory(), routes })
+  const router = createRouter({ history: createWebHistory(import.meta.env.BASE_URL), routes })
   router.beforeEach(async (to) => {
     const auth = useAuthStore(pinia)
     await auth.rehydrate()

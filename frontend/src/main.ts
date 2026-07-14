@@ -8,6 +8,7 @@ import './styles/account.css'
 import './styles/workspace.css'
 import './styles/admin.css'
 import App from './App.vue'
+import { initializeRepositoryMode } from './config/runtime'
 import { createAppRouter } from './router'
 import { useAppStore } from './stores/app'
 
@@ -16,4 +17,4 @@ const router = createAppRouter(pinia)
 const appStore = useAppStore(pinia)
 
 createApp(App).use(pinia).use(router).mount('#app')
-void appStore.detectApi()
+void initializeRepositoryMode(() => appStore.detectApi())
